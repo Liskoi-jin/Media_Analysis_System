@@ -1,0 +1,271 @@
+/* static/css/dashboard.css */
+
+/* 统计卡片 */
+.stat-card {
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary), var(--secondary));
+}
+
+.stat-card .stat-number {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.stat-card .stat-label {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* 趋势指示器 */
+.trend-indicator {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.trend-indicator.up {
+    color: var(--secondary);
+}
+
+.trend-indicator.down {
+    color: var(--danger);
+}
+
+.trend-indicator.neutral {
+    color: var(--text-muted);
+}
+
+.trend-indicator i {
+    margin-right: 0.25rem;
+}
+
+/* 快速操作按钮 */
+.quick-action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    background: var(--bg-card);
+    border: 1px solid var(--border-primary);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-decoration: none !important;
+    color: var(--text-primary);
+    transition: var(--transition);
+}
+
+.quick-action-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+    border-color: var(--primary);
+}
+
+.quick-action-btn i {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    color: var(--primary);
+}
+
+.quick-action-btn div {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+/* 仪表板图表容器 */
+.dashboard-chart-container {
+    background: var(--bg-card);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border-primary);
+}
+
+/* 活动时间线 */
+.activity-timeline {
+    position: relative;
+    padding-left: 2rem;
+}
+
+.activity-timeline::before {
+    content: '';
+    position: absolute;
+    left: 0.75rem;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--border-primary);
+}
+
+.activity-item {
+    position: relative;
+    padding-bottom: 1.5rem;
+}
+
+.activity-item::before {
+    content: '';
+    position: absolute;
+    left: -2rem;
+    top: 0.25rem;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    background: var(--primary);
+    border: 3px solid var(--bg-card);
+    box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
+}
+
+.activity-time {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+}
+
+.activity-content {
+    font-size: 0.9375rem;
+    color: var(--text-primary);
+}
+
+/* 状态指示器 */
+.status-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 0.5rem;
+}
+
+.status-indicator.online {
+    background-color: var(--secondary);
+    box-shadow: 0 0 0 3px rgba(6, 214, 160, 0.2);
+}
+
+.status-indicator.offline {
+    background-color: var(--danger);
+    box-shadow: 0 0 0 3px rgba(239, 35, 60, 0.2);
+}
+
+.status-indicator.warning {
+    background-color: var(--warning);
+    box-shadow: 0 0 0 3px rgba(251, 133, 0, 0.2);
+}
+
+/* 资源使用指示器 */
+.resource-usage {
+    margin-bottom: 1.5rem;
+}
+
+.resource-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+}
+
+.resource-name {
+    color: var(--text-muted);
+}
+
+.resource-value {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.resource-progress {
+    height: 8px;
+    border-radius: 4px;
+    background: var(--border-primary);
+    overflow: hidden;
+}
+
+.resource-progress-bar {
+    height: 100%;
+    border-radius: 4px;
+    background: var(--gradient-primary);
+    transition: width 0.3s ease;
+}
+
+/* 通知气泡 */
+.notification-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--danger);
+    color: white;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+}
+
+/* 加载状态 */
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    z-index: 10;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 3px solid var(--border-primary);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* 响应式调整 */
+@media (max-width: 1200px) {
+    .quick-action-btn {
+        padding: 1rem;
+    }
+
+    .quick-action-btn i {
+        font-size: 2rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .stat-card .stat-number {
+        font-size: 1.5rem;
+    }
+
+    .activity-timeline {
+        padding-left: 1.5rem;
+    }
+
+    .activity-item::before {
+        left: -1.5rem;
+    }
+}

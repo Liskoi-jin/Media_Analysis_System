@@ -1,0 +1,451 @@
+/* static/css/theme.css */
+/* 主题样式 - 补充所有组件的主题适配 */
+
+/* ========== 浅色主题特定样式 ========== */
+[data-theme="light"] {
+    /* 进度条 */
+    .progress {
+        background-color: #e9ecef;
+    }
+
+    /* 卡片悬停效果 */
+    .card:hover {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    /* 按钮样式补充 */
+    .btn-outline-primary {
+        color: var(--primary);
+        border-color: var(--primary);
+    }
+
+    .btn-outline-primary:hover {
+        background: var(--primary);
+        color: white;
+    }
+
+    .btn-outline-secondary {
+        color: var(--text-secondary);
+        border-color: var(--border-secondary);
+    }
+
+    .btn-outline-secondary:hover {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+    }
+
+    /* 标签页样式 */
+    .nav-tabs {
+        border-bottom-color: var(--border-primary);
+    }
+
+    .nav-tabs .nav-link {
+        color: var(--text-secondary);
+    }
+
+    .nav-tabs .nav-link:hover {
+        border-color: transparent;
+        color: var(--primary);
+    }
+
+    .nav-tabs .nav-link.active {
+        background: var(--bg-card);
+        border-color: var(--border-primary);
+        border-bottom-color: transparent;
+        color: var(--primary);
+    }
+
+    /* 徽章样式 */
+    .badge.bg-primary {
+        background: var(--primary) !important;
+    }
+
+    .badge.bg-success {
+        background: var(--secondary) !important;
+    }
+
+    .badge.bg-warning {
+        background: var(--warning) !important;
+        color: #000;
+    }
+
+    .badge.bg-danger {
+        background: var(--danger) !important;
+    }
+
+    .badge.bg-info {
+        background: var(--info) !important;
+    }
+
+    /* 输入组 */
+    .input-group-text {
+        background: var(--bg-tertiary);
+        border-color: var(--border-primary);
+        color: var(--text-secondary);
+    }
+
+    /* 列表组 */
+    .list-group-item {
+        background: var(--bg-card);
+        border-color: var(--border-primary);
+        color: var(--text-primary);
+    }
+
+    .list-group-item:hover {
+        background: var(--bg-card-hover);
+    }
+
+    /* 代码块 */
+    pre, code {
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border: 1px solid var(--border-primary);
+    }
+}
+
+/* ========== 深色主题特定样式 ========== */
+[data-theme="dark"] {
+    /* 进度条 */
+    .progress {
+        background-color: #2d3a4f;
+    }
+
+    /* 卡片悬停效果 */
+    .card:hover {
+        box-shadow: 0 10px 30px rgba(99, 102, 241, 0.15);
+    }
+
+    /* 按钮样式补充 */
+    .btn-outline-primary {
+        color: var(--primary-light);
+        border-color: rgba(99, 102, 241, 0.5);
+    }
+
+    .btn-outline-primary:hover {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: white;
+    }
+
+    .btn-outline-secondary {
+        color: var(--text-secondary);
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-outline-secondary:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    /* 标签页样式 */
+    .nav-tabs {
+        border-bottom-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .nav-tabs .nav-link {
+        color: var(--text-secondary);
+    }
+
+    .nav-tabs .nav-link:hover {
+        border-color: transparent;
+        color: var(--primary-light);
+    }
+
+    .nav-tabs .nav-link.active {
+        background: var(--bg-card);
+        border-color: rgba(255, 255, 255, 0.2);
+        border-bottom-color: transparent;
+        color: var(--primary-light);
+    }
+
+    /* 徽章样式 */
+    .badge.bg-primary {
+        background: var(--primary) !important;
+    }
+
+    .badge.bg-success {
+        background: var(--secondary) !important;
+    }
+
+    .badge.bg-warning {
+        background: var(--warning) !important;
+        color: #000;
+    }
+
+    .badge.bg-danger {
+        background: var(--danger) !important;
+    }
+
+    .badge.bg-info {
+        background: var(--info) !important;
+    }
+
+    /* 输入组 */
+    .input-group-text {
+        background: #1e293b;
+        border-color: rgba(255, 255, 255, 0.2);
+        color: var(--text-secondary);
+    }
+
+    /* 列表组 */
+    .list-group-item {
+        background: #1e293b;
+        border-color: rgba(255, 255, 255, 0.1);
+        color: var(--text-primary);
+    }
+
+    .list-group-item:hover {
+        background: #2d3a4f;
+    }
+
+    /* 代码块 */
+    pre, code {
+        background: #1e293b;
+        color: #e2e8f0;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* 深色模式下的图表适配 */
+    canvas {
+        filter: brightness(0.9) contrast(1.1);
+    }
+
+    /* 深色模式下的 SVG 图标 */
+    svg {
+        fill: currentColor;
+    }
+
+    /* 深色模式下的图片 */
+    img {
+        opacity: 0.9;
+    }
+
+    img:hover {
+        opacity: 1;
+    }
+}
+
+/* ========== 通用组件样式 ========== */
+
+/* 统计卡片 */
+.stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-primary);
+    border-radius: 16px;
+    padding: 25px;
+    transition: var(--transition);
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, var(--primary), var(--accent));
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--primary);
+    box-shadow: var(--shadow-hover);
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 5px;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.stat-label {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin-bottom: 10px;
+}
+
+.stat-trend {
+    display: flex;
+    align-items: center;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+/* 图表容器 */
+.chart-container {
+    position: relative;
+    height: 400px;
+    background: var(--bg-card);
+    border-radius: 12px;
+    padding: 15px;
+    border: 1px solid var(--border-primary);
+}
+
+/* 上传区域 */
+.upload-area {
+    background: var(--bg-card);
+    border: 2px dashed var(--border-primary);
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.upload-area:hover,
+.upload-area.dragover {
+    border-color: var(--primary);
+    background: rgba(67, 97, 238, 0.05);
+}
+
+/* 文件列表 */
+.file-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    padding: 12px 15px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: var(--transition);
+}
+
+.file-item:hover {
+    border-color: var(--primary);
+    transform: translateX(5px);
+}
+
+/* 过滤器按钮 */
+.filter-btn {
+    padding: 6px 15px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    transition: var(--transition);
+    cursor: pointer;
+}
+
+.filter-btn:hover {
+    background: rgba(67, 97, 238, 0.1);
+    color: var(--primary);
+    border-color: var(--primary);
+}
+
+.filter-btn.active {
+    background: rgba(67, 97, 238, 0.2);
+    color: var(--primary);
+    border-color: var(--primary);
+    font-weight: 500;
+}
+
+/* 数据表格操作栏 */
+.data-table-toolbar {
+    background: var(--bg-card);
+    border: 1px solid var(--border-primary);
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 20px;
+}
+
+/* 搜索框 */
+.search-box {
+    position: relative;
+}
+
+.search-box .search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+}
+
+.search-box input {
+    padding-left: 35px;
+}
+
+/* 加载状态 */
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+    z-index: 10;
+}
+
+[data-theme="dark"] .loading-overlay {
+    background: rgba(0, 0, 0, 0.7);
+}
+
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border-primary);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* 空状态 */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+}
+
+.empty-state-icon {
+    width: 80px;
+    height: 80px;
+    background: rgba(67, 97, 238, 0.1);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    border: 2px dashed var(--border-primary);
+}
+
+.empty-state-icon i {
+    color: var(--primary);
+    font-size: 2rem;
+}
+
+/* 工具类 */
+.text-primary { color: var(--primary) !important; }
+.text-success { color: var(--secondary) !important; }
+.text-danger { color: var(--danger) !important; }
+.text-warning { color: var(--warning) !important; }
+.text-info { color: var(--info) !important; }
+
+.bg-primary { background: var(--primary) !important; }
+.bg-success { background: var(--secondary) !important; }
+.bg-danger { background: var(--danger) !important; }
+.bg-warning { background: var(--warning) !important; }
+.bg-info { background: var(--info) !important; }
+
+.border-primary { border-color: var(--primary) !important; }
+.border-success { border-color: var(--secondary) !important; }
+.border-danger { border-color: var(--danger) !important; }
+.border-warning { border-color: var(--warning) !important; }

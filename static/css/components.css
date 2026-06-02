@@ -1,0 +1,296 @@
+/* static/css/components.css */
+
+/* 模态框样式 */
+.modal-xl-custom {
+    max-width: 1200px;
+}
+
+.modal-lg-custom {
+    max-width: 900px;
+}
+
+.modal-content {
+    background: var(--bg-card);
+    border: 1px solid var(--border-primary);
+    border-radius: 12px;
+    box-shadow: var(--shadow-hover);
+    color: var(--text-primary);
+}
+
+.modal-header {
+    border-bottom: 1px solid var(--border-primary);
+    padding: 1.2rem 1.5rem;
+}
+
+.modal-title {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.modal-body {
+    padding: 1.5rem;
+    max-height: 70vh;
+    overflow-y: auto;
+    color: var(--text-secondary);
+}
+
+.modal-footer {
+    border-top: 1px solid var(--border-primary);
+    padding: 1.2rem 1.5rem;
+}
+
+/* 工具提示样式 */
+.custom-tooltip {
+    position: relative;
+    cursor: pointer;
+}
+
+.custom-tooltip .tooltip-text {
+    visibility: hidden;
+    width: 200px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    padding: 8px 12px;
+    position: absolute;
+    z-index: 1000;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    box-shadow: var(--shadow);
+}
+
+.custom-tooltip .tooltip-text::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    margin-left: -5px;
+    border-width: 5px;
+    border-style: solid;
+    border-color: var(--border-primary) transparent transparent transparent;
+}
+
+.custom-tooltip:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* 标签页样式 */
+.custom-tabs {
+    border-bottom: 1px solid var(--border-primary);
+    margin-bottom: 1.5rem;
+}
+
+.custom-tabs .nav-link {
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--text-muted);
+    font-weight: 500;
+    padding: 0.75rem 1.5rem;
+    margin-bottom: -1px;
+    transition: var(--transition);
+    background: transparent;
+}
+
+.custom-tabs .nav-link:hover {
+    color: var(--primary);
+    border-bottom-color: rgba(67, 97, 238, 0.3);
+}
+
+.custom-tabs .nav-link.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    background: none;
+}
+
+/* 折叠面板样式 */
+.custom-accordion .accordion-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border-primary);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    overflow: hidden;
+}
+
+.custom-accordion .accordion-header {
+    margin-bottom: 0;
+}
+
+.custom-accordion .accordion-button {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    font-weight: 600;
+    padding: 1rem 1.25rem;
+    border: none;
+    box-shadow: none;
+}
+
+.custom-accordion .accordion-button:not(.collapsed) {
+    background: rgba(67, 97, 238, 0.05);
+    color: var(--primary);
+}
+
+.custom-accordion .accordion-button::after {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23ffffff'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
+}
+
+[data-theme="light"] .custom-accordion .accordion-button::after {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%231e293b'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
+}
+
+.custom-accordion .accordion-body {
+    padding: 1rem 1.25rem;
+    background: var(--bg-card);
+    color: var(--text-secondary);
+}
+
+/* 警告框样式 */
+.alert-custom {
+    border: none;
+    border-radius: 8px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    background: var(--bg-card);
+    border-left: 4px solid;
+}
+
+.alert-custom.alert-primary {
+    border-left-color: var(--primary);
+    color: var(--text-primary);
+}
+
+.alert-custom.alert-success {
+    border-left-color: var(--secondary);
+}
+
+.alert-custom.alert-warning {
+    border-left-color: var(--warning);
+}
+
+.alert-custom.alert-danger {
+    border-left-color: var(--danger);
+}
+
+/* 徽章样式扩展 */
+.badge-outline {
+    background: transparent;
+    border: 1px solid currentColor;
+}
+
+.badge-lg {
+    padding: 0.5em 1em;
+    font-size: 0.9rem;
+}
+
+.badge-pill {
+    border-radius: 20px;
+}
+
+/* 文件上传项样式 */
+.file-upload-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem;
+    background: var(--bg-card);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    border: 1px solid var(--border-primary);
+}
+
+.file-upload-item .file-icon {
+    margin-right: 0.75rem;
+    color: var(--primary);
+}
+
+.file-upload-item .file-info {
+    flex: 1;
+}
+
+.file-upload-item .file-name {
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+}
+
+.file-upload-item .file-size {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+/* 数据表格操作栏 */
+.data-table-toolbar {
+    background: var(--bg-card);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-primary);
+}
+
+/* 搜索框样式 */
+.search-box {
+    position: relative;
+}
+
+.search-box .search-icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+}
+
+.search-box input {
+    padding-left: 2.5rem;
+}
+
+/* 加载动画 */
+.spinner-border-custom {
+    width: 2rem;
+    height: 2rem;
+    border-width: 0.2em;
+}
+
+/* 错误状态样式 */
+.error-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-muted);
+}
+
+.error-state .error-icon {
+    font-size: 3rem;
+    color: var(--danger);
+    margin-bottom: 1rem;
+}
+
+/* 成功状态样式 */
+.success-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-muted);
+}
+
+.success-state .success-icon {
+    font-size: 3rem;
+    color: var(--secondary);
+    margin-bottom: 1rem;
+}
+
+/* 空状态样式 */
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-muted);
+}
+
+.empty-state .empty-icon {
+    font-size: 3rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
