@@ -1628,6 +1628,10 @@ a:hover {
     border-radius: 12px;
     padding: 20px;
     border: 1px solid var(--border-primary);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
 }
 
 .filter-header {

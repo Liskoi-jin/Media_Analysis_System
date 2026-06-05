@@ -339,16 +339,16 @@ def db_analysis_index():
     """数据库分析配置页"""
     # 从 NAME_TO_GROUP_MAPPING 获取小组列表（和上传页面完全一致）
     try:
-        # 从映射表中获取所有唯一的小组值
-        all_groups = sorted(list(set([
+        groups = list(set([
             group for group in NAME_TO_GROUP_MAPPING.values()
-            if group and group != '其他组' and group != '未知'
-        ])))
+            if group and group != '其他组' and group != '高阅读组' and group != '未知'
+        ]))
+        priority = {'AI媒介组': 0, '快消媒介组': 1, '耐消媒介组': 2}
+        all_groups = sorted(groups, key=lambda g: (priority.get(g, 99), g))
         logger.info(f"从映射表获取到的小组列表: {all_groups}")
     except Exception as e:
         logger.warning(f"从映射表获取小组列表失败: {e}，使用默认小组")
-        # 使用默认小组（和上传页面一致）
-        all_groups = ['家居媒介组', '快消媒介组', '耐消媒介组', '电商媒介组', '户外媒介组']
+        all_groups = ['AI媒介组', '快消媒介组', '耐消媒介组', '家居媒介组', '电商媒介组', '户外媒介组']
 
     return render_template('db_analysis_index.html', all_groups=all_groups, now=datetime.now())
 

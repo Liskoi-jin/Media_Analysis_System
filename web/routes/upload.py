@@ -279,11 +279,13 @@ def index():
 
         all_groups = []
         try:
-            all_groups = sorted(list(set([v for v in NAME_TO_GROUP_MAPPING.values() if v != '其他组' and v is not None])))
+            groups = list(set([v for v in NAME_TO_GROUP_MAPPING.values() if v != '其他组' and v != '高阅读组' and v is not None]))
+            priority = {'AI媒介组': 0, '快消媒介组': 1, '耐消媒介组': 2}
+            all_groups = sorted(groups, key=lambda g: (priority.get(g, 99), g))
             logger.info(f"从映射表获取到的小组列表: {all_groups}")
         except Exception as e:
             logger.warning(f"获取小组列表失败: {e}")
-            all_groups = ['家居媒介组', '快消媒介组', '耐消媒介组', '电商媒介组', '户外媒介组']
+            all_groups = ['AI媒介组', '快消媒介组', '耐消媒介组', '家居媒介组', '电商媒介组', '户外媒介组']
 
         return render_template('index.html', all_groups=all_groups, now=datetime.now())
 

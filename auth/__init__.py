@@ -11,4 +11,4 @@ def init_db(app):
     with app.app_context():
         from models import db
         db.create_all()
-        print("用户表已创建（若不存在）")
+        pass

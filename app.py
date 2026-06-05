@@ -8,25 +8,17 @@ import os
 from flask import Flask, render_template, redirect, url_for, session, g, send_from_directory
 from datetime import datetime
 
-# ========== 一次性日志配置 ==========
-def setup_logging_once():
-    """一次性日志配置，避免重复输出"""
-    root_logger = logging.getLogger()
-    for handler in root_logger.handlers[:]:
-        root_logger.removeHandler(handler)
-    root_logger.setLevel(logging.INFO)
+# ========== 日志配置 ==========
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    force=True,
+)
+logging.getLogger().setLevel(logging.WARNING)
+logging.getLogger('__main__').setLevel(logging.INFO)
+logging.getLogger('werkzeug').setLevel(logging.INFO)
 
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    console_handler.setLevel(logging.INFO)
-    root_logger.addHandler(console_handler)
-    root_logger.propagate = False
-    return root_logger
-
-root_logger = setup_logging_once()
 logger = logging.getLogger(__name__)
-logger.info("✅ 日志系统配置完成")
 
 # ========== 导入模块 ==========
 from models import db
@@ -34,6 +26,7 @@ from auth import auth_bp, init_db as init_auth_db
 from auth.utils import login_required
 from media import media_bp
 from web.routes import upload_bp, database_bp, reports_bp, note_bp
+from ReportExport import report_export_bp
 from flask_bcrypt import Bcrypt
 from analyzers.utils import load_mappings_from_db
 
@@ -49,6 +42,12 @@ app.config['SECRET_KEY'] = app.config.get('SECRET_KEY', 'media-audit-2025-secure
 from config import DB_CONFIG
 app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+pymysql://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}?charset={DB_CONFIG['charset']}"
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_recycle': 280,
+    'pool_pre_ping': True,
+    'pool_timeout': 30,
+    'max_overflow': 10
+}
 
 db.init_app(app)
 
@@ -62,6 +61,7 @@ app.register_blueprint(upload_bp)
 app.register_blueprint(database_bp)
 app.register_blueprint(reports_bp)
 app.register_blueprint(note_bp)  # 注册笔记分析蓝图
+app.register_blueprint(report_export_bp)  # 注册报告导出蓝图
 
 # ========== 创建必要目录 ==========
 def create_directories():
@@ -77,7 +77,6 @@ def create_directories():
     ]
     for dir_path in dirs:
         os.makedirs(dir_path, exist_ok=True)
-        logger.info(f"📂 目录创建成功：{dir_path}")
 
 create_directories()
 
@@ -200,26 +199,23 @@ def inject_theme_config():
 
 # ========== 应用入口 ==========
 if __name__ == '__main__':
-    logger.info("=" * 50)
-    logger.info("🚀 LG-DBM系统 启动成功")
-    logger.info(f"🌐 服务访问地址：http://0.0.0.0:5000")
-    logger.info(f"📂 上传目录：{app.config.get('UPLOAD_FOLDER', 'uploads')}")
-    logger.info(f"📤 输出目录：{app.config.get('OUTPUT_DIR', 'outputs')}")
-    logger.info("📊 分析模块：工作量分析、质量分析、成本分析、笔记分析")
-    logger.info("=" * 50)
-
-    # 启动前加载映射表
-    with app.app_context():
-        success = load_mappings_from_db(app)
-        if success:
-            logger.info("✅ 媒介映射表加载成功")
-        else:
-            logger.warning("⚠️ 媒介映射表加载失败，请检查数据库")
+    import os as _os
+    # reloader 子进程才输出启动信息（避免重复）
+    if _os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        logger.info("✅ 日志系统配置完成")
+        logger.info("🚀 LG-DBM系统 启动成功")
+        logger.info(f"🌐 服务访问地址：http://127.0.0.1:5000")
+        logger.info(f"📂 上传目录：{app.config.get('UPLOAD_FOLDER', 'uploads')}")
+        logger.info(f"📤 输出目录：{app.config.get('OUTPUT_DIR', 'outputs')}")
+        logger.info("📊 分析模块：工作量分析、质量分析、成本分析、笔记分析")
+        logger.info("=" * 50)
+        with app.app_context():
+            load_mappings_from_db(app)
 
     app.run(
         host='0.0.0.0',
         port=5000,
         debug=app.config.get('DEBUG', True),
         threaded=True,
-        use_reloader=False  # 设为False避免重载时重复加载
+        use_reloader=True
     )

@@ -6,4 +6,4 @@ def init_db(app):
     # 已经由 app_auto.py 统一初始化，这里只保留兼容函数
     with app.app_context():
         db.create_all()
-        print("✅ 用户表已创建（若不存在）")
+        pass
