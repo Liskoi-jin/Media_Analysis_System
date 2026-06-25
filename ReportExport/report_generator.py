@@ -364,8 +364,9 @@ def build_cost_performance_data(data):
     mwg = cost.get('media_group_workload', [])
     reb = cost.get('fixed_media_rebate', [])
 
-    # media_group_workload: [媒介小组, 总定档数, 目标数, 媒介人数, 已分配, 未分配, 分配率(%),
-    #                        总成本(元), 平均成本(元), 总返点(元), 平均返点(元), 平均返点率(%), 评价]
+    # media_group_workload: [媒介小组, 总达人数, 总项目数, 媒介人数, 已发布数, 未发布数,
+    #                        发布率(%), 总成本(元), 平均成本(元), 总下单价(元), 平均下单价(元),
+    #                        总返点金额(元), 平均返点金额(元), 平均返点比例(%), 返点表现]
     wl_map = {}
     for row in mwg:
         if not isinstance(row, dict):
@@ -376,10 +377,14 @@ def build_cost_performance_data(data):
             continue
         wl_map[name] = {
             'dingdang': int(float(_safe_val(vals, 1, 0))),
-            'avg_rebate': _safe_str(vals[11] if len(vals) > 11 else '')
+            'total_project': int(float(_safe_val(vals, 2, 0))),
+            'avg_cost': float(_safe_val(vals, 8, 0)),
+            'avg_order': float(_safe_val(vals, 10, 0)),
+            'avg_rebate': _safe_str(vals[13] if len(vals) > 13 else '')
         }
 
-    # fixed_media_rebate: [固定媒介, 定档数量, 所属小组, 平均返点率(%), 返点率最大值(%), 返点率最小值(%), ...]
+    # fixed_media_rebate: [固定媒介, 定档达人数, 所属小组, 平均返点比例(%), ...,
+    #                       总下单价(元), 平均下单价(元), 返点表现评估, 返点优化建议]
     rebate_map = {}
     for row in reb:
         if not isinstance(row, dict):
@@ -399,6 +404,9 @@ def build_cost_performance_data(data):
     for g in sorted_groups:
         wl = wl_map.get(g, {})
         dingdang = wl.get('dingdang', 0)
+        total_project = wl.get('total_project', 0)
+        avg_cost = wl.get('avg_cost', 0)
+        avg_order = wl.get('avg_order', 0)
         avg_rebate = wl.get('avg_rebate', '-')
 
         group_rebates = rebate_map.get(g, [])
@@ -426,6 +434,9 @@ def build_cost_performance_data(data):
         rows.append({
             'group': g,
             'dingdang': dingdang,
+            'total_project': total_project,
+            'avg_cost': avg_cost,
+            'avg_order': avg_order,
             'avg_rebate': avg_fmt,
             'high': high,
             'low': low
@@ -438,8 +449,9 @@ def build_level_analysis_data(data):
     """提取基于达人量级分析数据
     数据源: cost.fixed_media_level
     字段: [固定媒介, 达人量级, 达人数, 所属小组, 总成本(元), 平均成本(元),
-           总返点金额(元), 平均返点金额(元), 平均返点比例(%), 总互动量, 平均互动量,
-           总阅读量, 平均阅读量, 平均CPE, 平均CPM]
+           总下单价(元), 平均下单价(元), 总返点金额(元), 平均返点金额(元),
+           平均返点比例(%), 总互动量, 平均互动量, 总阅读量, 平均阅读量,
+           平均CPE, 平均CPM]
     """
     full = data.get('full_result', {})
     lvl = full.get('cost', {}).get('fixed_media_level', [])
@@ -465,15 +477,17 @@ def build_level_analysis_data(data):
             'group': group,
             'total_cost': float(_safe_val(vals, 4, 0)),
             'avg_cost': float(_safe_val(vals, 5, 0)),
-            'total_rebate': float(_safe_val(vals, 6, 0)),
-            'avg_rebate': float(_safe_val(vals, 7, 0)),
-            'avg_rebate_pct': _safe_str(vals[8] if len(vals) > 8 else '-'),
-            'total_interact': float(_safe_val(vals, 9, 0)),
-            'avg_interact': float(_safe_val(vals, 10, 0)),
-            'total_read': float(_safe_val(vals, 11, 0)),
-            'avg_read': float(_safe_val(vals, 12, 0)),
-            'avg_cpe': float(_safe_val(vals, 13, 0)),
-            'avg_cpm': float(_safe_val(vals, 14, 0))
+            'total_order': float(_safe_val(vals, 6, 0)),
+            'avg_order': float(_safe_val(vals, 7, 0)),
+            'total_rebate': float(_safe_val(vals, 8, 0)),
+            'avg_rebate': float(_safe_val(vals, 9, 0)),
+            'avg_rebate_pct': _safe_str(vals[10] if len(vals) > 10 else '-'),
+            'total_interact': float(_safe_val(vals, 11, 0)),
+            'avg_interact': float(_safe_val(vals, 12, 0)),
+            'total_read': float(_safe_val(vals, 13, 0)),
+            'avg_read': float(_safe_val(vals, 14, 0)),
+            'avg_cpe': float(_safe_val(vals, 15, 0)),
+            'avg_cpm': float(_safe_val(vals, 16, 0))
         })
 
     rows.sort(key=lambda r: (priority.get(r['group'], 99), r['group'], r['name'] or '', r['level'] or ''))
@@ -777,7 +791,7 @@ def build_rebate_analysis_data(data):
     数据源: cost.fixed_media_rebate
     字段: [固定媒介, 定档数量, 所属小组, 平均返点率(%), 返点率最大值(%), 返点率最小值(%),
            返点率中位数(%), 返点分布, 总返点金额(元), 平均返点金额(元), 返点金额最大值(元),
-           返点金额最小值(元), 返点金额中位数(元), 评估, 建议]
+           返点金额最小值(元), 返点金额中位数(元), 总下单价(元), 平均下单价(元), 评估, 建议]
     """
     full = data.get('full_result', {})
     reb = full.get('cost', {}).get('fixed_media_rebate', [])
@@ -807,8 +821,10 @@ def build_rebate_analysis_data(data):
             'max_rebate_amt': float(_safe_val(vals, 10, 0)),
             'min_rebate_amt': float(_safe_val(vals, 11, 0)),
             'median_rebate_amt': float(_safe_val(vals, 12, 0)),
-            'evaluation': _safe_str(vals[13] if len(vals) > 13 else '-'),
-            'suggestion': _safe_str(vals[14] if len(vals) > 14 else '-')
+            'total_order': float(_safe_val(vals, 13, 0)),
+            'avg_order': float(_safe_val(vals, 14, 0)),
+            'evaluation': _safe_str(vals[15] if len(vals) > 15 else '-'),
+            'suggestion': _safe_str(vals[16] if len(vals) > 16 else '-')
         })
 
     # 按小组优先级排序，组内按名字
@@ -1415,7 +1431,7 @@ def generate_weekly_report(analysis_id, source='analysis_results', week_label=No
 
     cost_perf = build_cost_performance_data(data)
     if cost_perf:
-        c_headers = ['媒介组', '定档达人数', '平均返点比例(%)', '返点比例最高', '返点比例最低']
+        c_headers = ['媒介组', '定档达人数', '总项目数', '平均成本(元)', '平均下单价(元)', '平均返点比例(%)', '返点比例最高', '返点比例最低']
         c_table = doc.add_table(rows=1 + len(cost_perf), cols=len(c_headers))
         c_table.alignment = WD_TABLE_ALIGNMENT.CENTER
         c_table.style = 'Table Grid'
@@ -1423,7 +1439,7 @@ def generate_weekly_report(analysis_id, source='analysis_results', week_label=No
             _add_cell_text(c_table.rows[0].cells[i], h, bold=True, size=9, color=RGBColor(0xFF, 0xFF, 0xFF))
             _set_cell_shading(c_table.rows[0].cells[i], '42A5F5')
         for ri, r in enumerate(cost_perf):
-            vals = [r['group'], str(r['dingdang']), r['avg_rebate'], r['high'], r['low']]
+            vals = [r['group'], str(r['dingdang']), str(r['total_project']), '%.2f' % r['avg_cost'] if isinstance(r['avg_cost'], (int, float)) else str(r['avg_cost']), '%.2f' % r['avg_order'] if isinstance(r['avg_order'], (int, float)) else str(r['avg_order']), r['avg_rebate'], r['high'], r['low']]
             for ci, v in enumerate(vals):
                 _add_cell_text(c_table.rows[ri + 1].cells[ci], v, size=9)
             _set_cell_shading(c_table.rows[ri + 1].cells[0], 'E3F2FD')
@@ -1472,7 +1488,7 @@ def generate_weekly_report(analysis_id, source='analysis_results', week_label=No
             r_headers = ['定档媒介', '定档达人数', '所属小组', '平均返点比例(%)', '返点比例最大值(%)',
                          '返点比例最小值(%)', '返点比例中位数(%)', '总返点金额(元)', '平均返点金额(元)',
                          '返点金额最大值(元)', '返点金额最小值(元)', '返点金额中位数(元)',
-                         '返点表现评估', '返点优化建议']
+                         '总下单价(元)', '平均下单价(元)', '返点表现评估', '返点优化建议']
             r_table = doc.add_table(rows=1 + len(reb_rows), cols=len(r_headers))
             r_table.alignment = WD_TABLE_ALIGNMENT.CENTER
             r_table.style = 'Table Grid'
@@ -1496,6 +1512,8 @@ def generate_weekly_report(analysis_id, source='analysis_results', week_label=No
                     '%.2f' % rr['max_rebate_amt'],
                     '%.2f' % rr['min_rebate_amt'],
                     '%.2f' % rr['median_rebate_amt'],
+                    '%.2f' % rr['total_order'] if isinstance(rr['total_order'], (int, float)) else str(rr['total_order']),
+                    '%.2f' % rr['avg_order'] if isinstance(rr['avg_order'], (int, float)) else str(rr['avg_order']),
                     rr['evaluation'],
                     rr['suggestion']
                 ]
@@ -1504,7 +1522,7 @@ def generate_weekly_report(analysis_id, source='analysis_results', week_label=No
             for ri, rr in enumerate(reb_rows):
                 _set_cell_shading(r_table.rows[ri + 1].cells[0], 'E3F2FD')
                 _set_alt_row_shading(r_table, ri + 1)
-                ev_cell = r_table.rows[ri + 1].cells[12]
+                ev_cell = r_table.rows[ri + 1].cells[14]
                 ev = rr['evaluation']
                 if ev == '优秀':
                     _set_cell_shading(ev_cell, 'd4edda')
@@ -1522,8 +1540,8 @@ def generate_weekly_report(analysis_id, source='analysis_results', week_label=No
         lvl_rows = build_level_analysis_data(data)
         if lvl_rows:
             l_headers = ['定档媒介', '达人量级', '达人数', '所属小组', '总成本(元)', '平均成本(元)',
-                         '总返点金额(元)', '平均返点金额(元)', '平均返点比例(%)',
-                         '总互动量', '平均互动量', '总阅读量', '平均阅读量',
+                         '总下单价(元)', '平均下单价(元)', '总返点金额(元)', '平均返点金额(元)',
+                         '平均返点比例(%)', '总互动量', '平均互动量', '总阅读量', '平均阅读量',
                          '平均CPE', '平均CPM']
             l_table = doc.add_table(rows=1 + len(lvl_rows), cols=len(l_headers))
             l_table.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -1538,6 +1556,8 @@ def generate_weekly_report(analysis_id, source='analysis_results', week_label=No
                 vals = [
                     rr['name'], rr['level'], str(rr['count']), rr['group'],
                     '%.2f' % rr['total_cost'], '%.2f' % rr['avg_cost'],
+                    '%.2f' % rr['total_order'] if isinstance(rr['total_order'], (int, float)) else str(rr['total_order']),
+                    '%.2f' % rr['avg_order'] if isinstance(rr['avg_order'], (int, float)) else str(rr['avg_order']),
                     '%.2f' % rr['total_rebate'], '%.2f' % rr['avg_rebate'],
                     rr['avg_rebate_pct'],
                     '%.0f' % rr['total_interact'], '%.2f' % rr['avg_interact'],

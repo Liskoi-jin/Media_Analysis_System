@@ -194,253 +194,96 @@ class QualityAnalyzer:
         logger.info(f"小组分布: {df_processed['所属小组'].value_counts().to_dict()}")
         return df_processed
 
-    def _calculate_media_quality(self, df: pd.DataFrame, use_original_state: bool) -> pd.DataFrame:
-        """
-        计算媒介工作质量（核心逻辑）
-        :param df: 输入数据
-        :param use_original_state: 是否使用原始状态
-        :return: 质量明细DataFrame（始终按小组排序）
-        """
-        logger.info("计算媒介工作质量明细（始终按小组排序）")
-
-        # 选择使用的状态字段
+    def _compute_quality_stats(self, df: pd.DataFrame, use_original_state: bool) -> pd.DataFrame:
+        """计算媒介质量统计（核心逻辑提取，供两个入口方法复用）"""
         if use_original_state and '原始状态' in df.columns:
             status_col = '原始状态'
         else:
             status_col = '状态'
 
-        # 标准化状态字段
+        df = df.copy()
         df['分析状态'] = df[status_col].fillna('UNKNOWN').astype(str).str.upper()
 
-        # 定义过筛状态
-        def is_screening_passed(status):
-            status_upper = str(status).upper()
-            passed_keywords = ['SCREENING_PASSED', 'CHAIN_RETURNED', 'SCHEDULED']
-            return any(keyword in status_upper for keyword in passed_keywords)
+        df['是否过筛'] = df['分析状态'].apply(
+            lambda s: any(kw in str(s).upper() for kw in ['SCREENING_PASSED', 'CHAIN_RETURNED', 'SCHEDULED'])
+        )
 
-        df['是否过筛'] = df['分析状态'].apply(is_screening_passed)
-
-        # 按媒介分组统计
         media_stats = df.groupby(['定档媒介ID', '对应名字', '所属小组']).agg(
             总提报达人数=('是否过筛', 'count'),
             过筛人数=('是否过筛', 'sum')
         ).reset_index()
 
-        # 计算过筛率
         media_stats['过筛率'] = np.where(
             media_stats['总提报达人数'] > 0,
-            (media_stats['过筛人数'] / media_stats['总提报达人数'] * 100).round(2),
-            0.0
+            (media_stats['过筛人数'] / media_stats['总提报达人数'] * 100).round(2), 0.0
         )
         media_stats['过筛率(%)'] = media_stats['过筛率'].astype(str) + "%"
 
-        # 质量评估 - 根据新标准
         def evaluate_quality(rate):
-            if rate >= 80:
-                return "优秀"
-            elif rate >= 65:
-                return "良好"
-            elif rate >= 50:
-                return "一般"
-            elif rate >= 40:
-                return "待改进"
-            else:
-                return "较差"
+            if rate >= 80: return "优秀"
+            if rate >= 65: return "良好"
+            if rate >= 50: return "一般"
+            if rate >= 40: return "待改进"
+            return "较差"
 
         media_stats['质量评估'] = media_stats['过筛率'].apply(evaluate_quality)
 
-        # 主要状态分布（简化版）
         def get_main_status_distribution(statuses):
-            if len(statuses) == 0:
+            if not statuses:
                 return "无状态数据"
-
             status_counts = {}
             for status in statuses:
-                status_str = str(status).upper()
-                if 'SCREENING_PASSED' in status_str:
-                    key = '过筛通过'
-                elif 'CHAIN_RETURNED' in status_str:
-                    key = '已发布'
-                elif 'SCHEDULED' in status_str:
-                    key = '已排期'
-                elif 'SCREENING_FAILED' in status_str:
-                    key = '过筛失败'
-                elif 'REJECTED' in status_str:
-                    key = '已拒绝'
-                else:
-                    key = '其他'
-
+                s = str(status).upper()
+                key = ('过筛通过' if 'SCREENING_PASSED' in s else
+                       '已发布' if 'CHAIN_RETURNED' in s else
+                       '已排期' if 'SCHEDULED' in s else
+                       '过筛失败' if 'SCREENING_FAILED' in s else
+                       '已拒绝' if 'REJECTED' in s else '其他')
                 status_counts[key] = status_counts.get(key, 0) + 1
-
-            distribution_items = []
-            for status, count in sorted(status_counts.items(), key=lambda x: x[1], reverse=True):
-                percentage = (count / len(statuses) * 100) if len(statuses) > 0 else 0
-                distribution_items.append(f"{status}:{count}({percentage:.1f}%)")
-
-            return "; ".join(distribution_items[:3])  # 只显示前3个主要状态
+            items = [f"{s}:{c}({c/len(statuses)*100:.1f}%)"
+                     for s, c in sorted(status_counts.items(), key=lambda x: x[1], reverse=True)]
+            return "; ".join(items[:3])
 
         media_stats['主要状态分布'] = df.groupby(['定档媒介ID', '对应名字', '所属小组'])['分析状态'].apply(
             lambda x: get_main_status_distribution(x.tolist())
         ).reset_index(drop=True)
 
-        # 按小组排序（耐消媒介组→家居媒介组→快消媒介组→其他组）
-        group_order_mapping = {
-            '耐消媒介组': 1,
-            '家居媒介组': 2,
-            '快消媒介组': 3
-        }
-
-        # 定义质量评估排序映射（用于小组内排序）
+        group_order = {'耐消媒介组': 1, '家居媒介组': 2, '快消媒介组': 3}
         eval_order = {'优秀': 1, '良好': 2, '一般': 3, '待改进': 4, '较差': 5}
 
-        # 添加排序字段
-        media_stats['小组排序'] = media_stats['所属小组'].map(
-            lambda x: group_order_mapping.get(x, 99)  # 其他组排在最后
-        )
+        media_stats['小组排序'] = media_stats['所属小组'].map(lambda x: group_order.get(x, 99))
         media_stats['质量评估排序'] = media_stats['质量评估'].map(eval_order)
 
-        # 排序：先小组，再质量评估，再过筛率，最后提报量
         media_stats = media_stats.sort_values(
             ['小组排序', '质量评估排序', '过筛率', '总提报达人数'],
             ascending=[True, True, False, False]
-        )
+        ).drop(['小组排序', '质量评估排序'], axis=1).reset_index(drop=True)
 
-        # 删除临时排序列
-        media_stats = media_stats.drop(['小组排序', '质量评估排序'], axis=1)
-
-        # 重置索引
-        media_stats = media_stats.reset_index(drop=True)
-
-        logger.info(f"媒介工作质量计算完成，共 {len(media_stats)} 个媒介，按小组排序")
         return media_stats
+
+    def _calculate_media_quality(self, df: pd.DataFrame, use_original_state: bool) -> pd.DataFrame:
+        logger.info("计算媒介工作质量明细（始终按小组排序）")
+        result = self._compute_quality_stats(df, use_original_state)
+        logger.info(f"媒介工作质量计算完成，共 {len(result)} 个媒介，按小组排序")
+        return result
 
     def _calculate_purpose_specific_quality(self, df: pd.DataFrame, use_original_state: bool,
                                             purpose_filter: str) -> pd.DataFrame:
-        """
-        按influencer_purpose分类计算工作质量
-        :param df: 原始数据
-        :param use_original_state: 是否使用原始状态
-        :param purpose_filter: influencer_purpose过滤值 ('优质达人'或'高阅读达人')
-        :return: 分类质量明细DataFrame
-        """
         logger.info(f"计算 {purpose_filter} 工作质量明细")
-
-        # 过滤数据
-        if 'influencer_purpose' in df.columns:
-            purpose_df = df[df['influencer_purpose'] == purpose_filter].copy()
-        else:
+        if 'influencer_purpose' not in df.columns:
             logger.warning(f"数据中无'influencer_purpose'列，无法进行{purpose_filter}分析")
             return pd.DataFrame()
 
+        purpose_df = df[df['influencer_purpose'] == purpose_filter].copy()
         if purpose_df.empty:
             logger.warning(f"无{purpose_filter}数据")
             return pd.DataFrame()
 
-        # 选择使用的状态字段
-        if use_original_state and '原始状态' in purpose_df.columns:
-            status_col = '原始状态'
-        else:
-            status_col = '状态'
-
-        # 标准化状态字段
-        purpose_df['分析状态'] = purpose_df[status_col].fillna('UNKNOWN').astype(str).str.upper()
-
-        # 定义过筛状态
-        def is_screening_passed(status):
-            status_upper = str(status).upper()
-            passed_keywords = ['SCREENING_PASSED', 'CHAIN_RETURNED', 'SCHEDULED']
-            return any(keyword in status_upper for keyword in passed_keywords)
-
-        purpose_df['是否过筛'] = purpose_df['分析状态'].apply(is_screening_passed)
-
-        # 按媒介分组统计
-        purpose_stats = purpose_df.groupby(['定档媒介ID', '对应名字', '所属小组']).agg(
-            总提报达人数=('是否过筛', 'count'),
-            过筛人数=('是否过筛', 'sum')
-        ).reset_index()
-
-        # 计算过筛率
-        purpose_stats['过筛率'] = np.where(
-            purpose_stats['总提报达人数'] > 0,
-            (purpose_stats['过筛人数'] / purpose_stats['总提报达人数'] * 100).round(2),
-            0.0
-        )
-        purpose_stats['过筛率(%)'] = purpose_stats['过筛率'].astype(str) + "%"
-
-        # 质量评估
-        def evaluate_quality(rate):
-            if rate >= 80:
-                return "优秀"
-            elif rate >= 65:
-                return "良好"
-            elif rate >= 50:
-                return "一般"
-            elif rate >= 40:
-                return "待改进"
-            else:
-                return "较差"
-
-        purpose_stats['质量评估'] = purpose_stats['过筛率'].apply(evaluate_quality)
-
-        # 主要状态分布
-        def get_main_status_distribution(statuses):
-            if len(statuses) == 0:
-                return "无状态数据"
-
-            status_counts = {}
-            for status in statuses:
-                status_str = str(status).upper()
-                if 'SCREENING_PASSED' in status_str:
-                    key = '过筛通过'
-                elif 'CHAIN_RETURNED' in status_str:
-                    key = '已发布'
-                elif 'SCHEDULED' in status_str:
-                    key = '已排期'
-                elif 'SCREENING_FAILED' in status_str:
-                    key = '过筛失败'
-                elif 'REJECTED' in status_str:
-                    key = '已拒绝'
-                else:
-                    key = '其他'
-
-                status_counts[key] = status_counts.get(key, 0) + 1
-
-            distribution_items = []
-            for status, count in sorted(status_counts.items(), key=lambda x: x[1], reverse=True):
-                percentage = (count / len(statuses) * 100) if len(statuses) > 0 else 0
-                distribution_items.append(f"{status}:{count}({percentage:.1f}%)")
-
-            return "; ".join(distribution_items[:3])
-
-        purpose_stats['主要状态分布'] = purpose_df.groupby(['定档媒介ID', '对应名字', '所属小组'])['分析状态'].apply(
-            lambda x: get_main_status_distribution(x.tolist())
-        ).reset_index(drop=True)
-
-        # 按小组排序
-        group_order_mapping = {
-            '耐消媒介组': 1,
-            '家居媒介组': 2,
-            '快消媒介组': 3
-        }
-
-        eval_order = {'优秀': 1, '良好': 2, '一般': 3, '待改进': 4, '较差': 5}
-
-        purpose_stats['小组排序'] = purpose_stats['所属小组'].map(
-            lambda x: group_order_mapping.get(x, 99)
-        )
-        purpose_stats['质量评估排序'] = purpose_stats['质量评估'].map(eval_order)
-
-        purpose_stats = purpose_stats.sort_values(
-            ['小组排序', '质量评估排序', '过筛率', '总提报达人数'],
-            ascending=[True, True, False, False]
-        )
-
-        purpose_stats = purpose_stats.drop(['小组排序', '质量评估排序'], axis=1)
-        purpose_stats = purpose_stats.reset_index(drop=True)
-        purpose_stats['达人类型'] = purpose_filter
-
-        logger.info(f"{purpose_filter} 工作质量计算完成，共 {len(purpose_stats)} 个媒介")
-        return purpose_stats
+        result = self._compute_quality_stats(purpose_df, use_original_state)
+        if not result.empty:
+            result['达人类型'] = purpose_filter
+        logger.info(f"{purpose_filter} 工作质量计算完成，共 {len(result)} 个媒介")
+        return result
 
     def _format_quality_detail(self, df: pd.DataFrame) -> pd.DataFrame:
         """

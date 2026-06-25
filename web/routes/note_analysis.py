@@ -23,16 +23,61 @@ note_bp = Blueprint('note_analysis', __name__, url_prefix='/note-analysis')
 note_analysis_results = {}
 
 
+def _get_note_results_dir():
+    """获取笔记分析结果存储目录"""
+    return os.path.join(app.config.get('OUTPUT_DIR', 'outputs'), 'note_analysis_results')
+
+
+def _backfill_high_value_scores(data):
+    """为旧版分析结果回填综合评分字段，失败时静默跳过"""
+    try:
+        if not isinstance(data, dict):
+            return
+        for atype_data in (data.get('result', {}).get(atype, {}) for atype in ('value',)):
+            if not isinstance(atype_data, dict):
+                continue
+            for entry in atype_data.get('overall', {}).get('high_value_influencers', []):
+                if '综合评分' not in entry:
+                    cpe = entry.get('CPE', 0) or 0
+                    entry['综合评分'] = round(1.0 / (1.0 + cpe), 4)
+            for tier_key in ('KOL', '十万KOL', 'KOC', '其他'):
+                for entry in atype_data.get('by_tier', {}).get(tier_key, {}).get('high_value_influencers', []):
+                    if '综合评分' not in entry:
+                        cpe = entry.get('CPE', 0) or 0
+                        entry['综合评分'] = round(1.0 / (1.0 + cpe), 4)
+    except Exception:
+        pass
+
+def _load_note_result_from_disk(analysis_id):
+    """从本地 JSON 文件加载笔记分析结果"""
+    result_file = os.path.join(_get_note_results_dir(), f'{analysis_id}.json')
+    if not os.path.exists(result_file):
+        return None
+    try:
+        with open(result_file, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        _backfill_high_value_scores(data)
+        return data
+    except Exception as e:
+        logger.error(f"读取笔记分析结果文件失败: {result_file}, 错误: {e}")
+        return None
+
+
 def _get_latest_analysis():
-    """获取最新的分析结果ID"""
+    """获取最新的分析结果ID（内存 + 磁盘）"""
     if note_analysis_results:
         return sorted(note_analysis_results.keys())[-1]
+    results_dir = _get_note_results_dir()
+    if os.path.exists(results_dir):
+        files = sorted([f.replace('.json', '') for f in os.listdir(results_dir) if f.endswith('.json')])
+        if files:
+            return files[-1]
     return None
 
 
 def _get_analysis_result(analysis_id, analysis_type):
     """
-    获取分析结果，支持 latest
+    获取分析结果，支持 latest，支持从磁盘恢复
     返回: (analysis_id, analysis_data, result)
     """
     if analysis_id == 'latest':
@@ -43,7 +88,13 @@ def _get_analysis_result(analysis_id, analysis_type):
 
     analysis_data = note_analysis_results.get(analysis_id, {})
     if not analysis_data:
-        return None, None, f'分析结果不存在: {analysis_id}'
+        analysis_data = _load_note_result_from_disk(analysis_id)
+        if analysis_data:
+            note_analysis_results[analysis_id] = analysis_data
+        else:
+            return None, None, f'分析结果不存在: {analysis_id}'
+    else:
+        _backfill_high_value_scores(analysis_data)
 
     logger.info(f"获取分析结果: analysis_id={analysis_id}, analysis_type={analysis_type}")
 
@@ -313,6 +364,10 @@ def combined_dashboard(analysis_id):
     """综合仪表盘"""
     try:
         analysis_data = note_analysis_results.get(analysis_id)
+        if not analysis_data:
+            analysis_data = _load_note_result_from_disk(analysis_id)
+            if analysis_data:
+                note_analysis_results[analysis_id] = analysis_data
 
         if not analysis_data:
             flash('分析结果不存在', 'error')
@@ -407,6 +462,10 @@ def dashboard(analysis_id):
     """笔记分析仪表盘（单分析类型）"""
     analysis_type = request.args.get('analysis_type', 'content')
     analysis_data = note_analysis_results.get(analysis_id)
+    if not analysis_data:
+        analysis_data = _load_note_result_from_disk(analysis_id)
+        if analysis_data:
+            note_analysis_results[analysis_id] = analysis_data
 
     if not analysis_data:
         flash('分析结果不存在', 'error')
@@ -547,6 +606,11 @@ def export_report(analysis_id, export_type):
     import io
 
     analysis_data = note_analysis_results.get(analysis_id)
+    if not analysis_data:
+        analysis_data = _load_note_result_from_disk(analysis_id)
+        if analysis_data:
+            note_analysis_results[analysis_id] = analysis_data
+
     if not analysis_data:
         flash('分析结果不存在', 'error')
         return redirect(url_for('note_analysis.data_source_selector'))

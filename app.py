@@ -36,7 +36,7 @@ bcrypt = Bcrypt(app)
 
 # ========== 加载配置 ==========
 app.config.from_object('config.Config')
-app.config['SECRET_KEY'] = app.config.get('SECRET_KEY', 'media-audit-2025-secure-key')
+app.config['SECRET_KEY'] = app.config.get('SECRET_KEY', os.getenv('SECRET_KEY', ''))
 
 # ========== 数据库配置 ==========
 from config import DB_CONFIG
@@ -52,7 +52,10 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 db.init_app(app)
 
 # ========== 初始化认证模块 ==========
-init_auth_db(app)
+try:
+    init_auth_db(app)
+except Exception as e:
+    logger.warning(f"数据库初始化失败（应用仍可启动，部分功能受限）: {e}")
 
 # ========== 注册蓝图 ==========
 app.register_blueprint(auth_bp)
@@ -158,8 +161,8 @@ def format_percentage_filter(value, default='0.00%'):
 # ========== 根路由 ==========
 @app.route('/')
 def root_redirect():
-    """根路径重定向到数据来源选择页"""
-    return redirect(url_for('reports.data_source_selector'))
+    """根路径重定向到首页"""
+    return redirect(url_for('reports.home'))
 
 # ========== favicon路由 ==========
 @app.route('/favicon.ico')
@@ -210,12 +213,16 @@ if __name__ == '__main__':
         logger.info("📊 分析模块：工作量分析、质量分析、成本分析、笔记分析")
         logger.info("=" * 50)
         with app.app_context():
-            load_mappings_from_db(app)
+            try:
+                load_mappings_from_db(app)
+            except Exception as e:
+                logger.warning(f"启动时加载映射表失败: {e}")
 
+    debug_mode = app.config.get('DEBUG', False)
     app.run(
-        host='0.0.0.0',
+        host='127.0.0.1',
         port=5000,
-        debug=app.config.get('DEBUG', True),
+        debug=debug_mode,
         threaded=True,
-        use_reloader=True
+        use_reloader=debug_mode
     )

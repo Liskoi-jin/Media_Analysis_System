@@ -432,18 +432,32 @@
     font-size: 2rem;
 }
 
-/* 工具类 */
+/* ========== 覆盖 Bootstrap 工具类 ========== */
 .text-primary { color: var(--primary) !important; }
+.text-secondary { color: var(--text-secondary) !important; }
 .text-success { color: var(--secondary) !important; }
 .text-danger { color: var(--danger) !important; }
 .text-warning { color: var(--warning) !important; }
 .text-info { color: var(--info) !important; }
+.text-muted { color: var(--text-muted) !important; }
+.text-body { color: var(--text-primary) !important; }
+.text-dark { color: var(--text-primary) !important; }
+.text-light { color: var(--text-light) !important; }
+.text-white { color: var(--text-light) !important; }
+.text-black { color: var(--text-primary) !important; }
+.text-black-50 { color: var(--text-muted) !important; }
+.text-white-50 { color: var(--text-muted) !important; }
 
 .bg-primary { background: var(--primary) !important; }
 .bg-success { background: var(--secondary) !important; }
 .bg-danger { background: var(--danger) !important; }
 .bg-warning { background: var(--warning) !important; }
 .bg-info { background: var(--info) !important; }
+.bg-light { background: var(--bg-tertiary) !important; }
+.bg-dark { background: var(--text-primary) !important; }
+.bg-white { background: var(--bg-secondary) !important; }
+.bg-black { background: var(--text-primary) !important; }
+.bg-body { background: var(--bg-primary) !important; }
 
 .border-primary { border-color: var(--primary) !important; }
 .border-success { border-color: var(--secondary) !important; }

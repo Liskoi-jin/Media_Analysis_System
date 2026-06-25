@@ -90,9 +90,9 @@ def _build_media_sections(data):
     html += '<h2>4、成本发挥</h2>'
     cost_perf = build_cost_performance_data(data)
     if cost_perf:
-        html += '<table><thead><tr><th style="background:#42A5F5;color:#fff;font-weight:bold;">媒介组</th><th style="background:#42A5F5;color:#fff;font-weight:bold;">定档达人数</th><th style="background:#42A5F5;color:#fff;font-weight:bold;">平均返点比例(%)</th><th style="background:#42A5F5;color:#fff;font-weight:bold;">返点比例最高</th><th style="background:#42A5F5;color:#fff;font-weight:bold;">返点比例最低</th></tr></thead><tbody>'
+        html += '<table><thead><tr><th style="background:#42A5F5;color:#fff;font-weight:bold;">媒介组</th><th style="background:#42A5F5;color:#fff;font-weight:bold;">定档达人数</th><th style="background:#42A5F5;color:#fff;font-weight:bold;">总项目数</th><th style="background:#42A5F5;color:#fff;font-weight:bold;">平均成本(元)</th><th style="background:#42A5F5;color:#fff;font-weight:bold;">平均下单价(元)</th><th style="background:#42A5F5;color:#fff;font-weight:bold;">平均返点比例(%)</th><th style="background:#42A5F5;color:#fff;font-weight:bold;">返点比例最高</th><th style="background:#42A5F5;color:#fff;font-weight:bold;">返点比例最低</th></tr></thead><tbody>'
         for r in cost_perf:
-            html += f'<tr><td style="background:#E3F2FD;">{r["group"]}</td><td>{r["dingdang"]}</td><td>{r["avg_rebate"]}</td><td>{r["high"]}</td><td>{r["low"]}</td></tr>'
+            html += f'<tr><td style="background:#E3F2FD;">{r["group"]}</td><td>{r["dingdang"]}</td><td>{r["total_project"]}</td><td>{"%.2f" % r["avg_cost"] if isinstance(r["avg_cost"], (int, float)) else r["avg_cost"]}</td><td>{"%.2f" % r["avg_order"] if isinstance(r["avg_order"], (int, float)) else r["avg_order"]}</td><td>{r["avg_rebate"]}</td><td>{r["high"]}</td><td>{r["low"]}</td></tr>'
         html += '</tbody></table><p class="note">注：不含高返项目</p>'
 
         # 返点分析
@@ -100,13 +100,15 @@ def _build_media_sections(data):
         rebate_rows = build_rebate_analysis_data(data)
         if rebate_rows:
             headers = ['定档媒介', '定档达人数', '所属小组', '平均返点比例(%)', '返点比例最大值(%)', '返点比例最小值(%)', '返点比例中位数(%)',
-                       '总返点金额(元)', '平均返点金额(元)', '返点金额最大值(元)', '返点金额最小值(元)', '返点金额中位数(元)', '返点表现评估', '返点优化建议']
+                       '总返点金额(元)', '平均返点金额(元)', '返点金额最大值(元)', '返点金额最小值(元)', '返点金额中位数(元)',
+                       '总下单价(元)', '平均下单价(元)', '返点表现评估', '返点优化建议']
             html += '<table style="font-size:12px;"><thead><tr>' + ''.join(f'<th style="background:#42A5F5;color:#fff;font-weight:bold;">{h}</th>' for h in headers) + '</tr></thead><tbody>'
             for r in rebate_rows:
                 html += '<tr>'
                 html += f'<td style="background:#E3F2FD">{r["name"]}</td>'
                 html += ''.join(f'<td>{r[k]}</td>' for k in ['dingdang','group','avg_rebate','max_rebate','min_rebate','median_rebate'])
                 html += ''.join(f'<td>{r[k]:.2f}</td>' for k in ['total_rebate_amt','avg_rebate_amt','max_rebate_amt','min_rebate_amt','median_rebate_amt'])
+                html += f'<td>{"%.2f" % r["total_order"] if isinstance(r["total_order"], (int, float)) else r["total_order"]}</td><td>{"%.2f" % r["avg_order"] if isinstance(r["avg_order"], (int, float)) else r["avg_order"]}</td>'
                 html += f'<td>{r["evaluation"]}</td><td>{r["suggestion"]}</td></tr>'
             html += '</tbody></table>'
 
@@ -114,14 +116,17 @@ def _build_media_sections(data):
         html += '<p class="note">②基于达人量级分析</p>'
         lvl_rows = build_level_analysis_data(data)
         if lvl_rows:
-            headers = ['定档媒介', '达人量级', '达人数', '所属小组', '总成本(元)', '平均成本(元)', '总返点金额(元)', '平均返点金额(元)',
-                       '平均返点比例(%)', '总互动量', '平均互动量', '总阅读量', '平均阅读量', '平均CPE', '平均CPM']
+            headers = ['定档媒介', '达人量级', '达人数', '所属小组', '总成本(元)', '平均成本(元)',
+                       '总下单价(元)', '平均下单价(元)', '总返点金额(元)', '平均返点金额(元)',
+                       '平均返点比例(%)', '总互动量', '平均互动量', '总阅读量', '平均阅读量',
+                       '平均CPE', '平均CPM']
             html += '<table style="font-size:12px;"><thead><tr>' + ''.join(f'<th style="background:#42A5F5;color:#fff;font-weight:bold;">{h}</th>' for h in headers) + '</tr></thead><tbody>'
             for r in lvl_rows:
                 html += '<tr>'
                 html += f'<td style="background:#E3F2FD">{r["name"]}</td>'
                 html += f'<td>{r["level"]}</td><td>{r["count"]}</td><td>{r["group"]}</td>'
                 html += f'<td>{r["total_cost"]:.2f}</td><td>{r["avg_cost"]:.2f}</td>'
+                html += f'<td>{"%.2f" % r["total_order"] if isinstance(r["total_order"], (int, float)) else r["total_order"]}</td><td>{"%.2f" % r["avg_order"] if isinstance(r["avg_order"], (int, float)) else r["avg_order"]}</td>'
                 html += f'<td>{r["total_rebate"]:.2f}</td><td>{r["avg_rebate"]:.2f}</td><td>{r["avg_rebate_pct"]}</td>'
                 html += f'<td>{r["total_interact"]:.0f}</td><td>{r["avg_interact"]:.2f}</td>'
                 html += f'<td>{r["total_read"]:.0f}</td><td>{r["avg_read"]:.2f}</td>'

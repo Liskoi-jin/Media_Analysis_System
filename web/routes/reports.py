@@ -19,14 +19,11 @@ from flask import current_app as app
 
 reports_bp = Blueprint('reports', __name__, url_prefix='/reports')
 
-# 全局变量
 analysis_results = {}
-global_analysis_results = {}
 
 
 def load_analysis_result(analysis_id):
     """从内存/本地文件加载分析结果"""
-    # 优先从内存读取
     if analysis_id in analysis_results:
         analysis_data = analysis_results[analysis_id].copy()
 
@@ -105,11 +102,7 @@ def load_analysis_result(analysis_id):
         analysis_data['timestamp'] = analysis_data.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         return analysis_data
 
-    # 检查数据库分析结果
-    if 'global_analysis_results' in globals() and analysis_id in global_analysis_results:
-        return global_analysis_results[analysis_id].copy()
-
-    # 检查本地文件
+    # 从本地 JSON 文件加载
     result_file = os.path.join(app.config.get('OUTPUT_DIR', 'outputs'), 'analysis_results', f'{analysis_id}.json')
     if os.path.exists(result_file):
         try:
@@ -135,8 +128,203 @@ def load_analysis_result(analysis_id):
 
 @reports_bp.route('/')
 def root_redirect():
-    """根路径重定向到数据来源选择页"""
-    return redirect(url_for('reports.data_source_selector'))
+    """根路径重定向到首页"""
+    return redirect(url_for('reports.home'))
+
+
+@reports_bp.route('/home')
+@login_required
+def home():
+    """全局首页 - 整合媒介分析与笔记分析核心指标"""
+    media_data = None
+    note_data = None
+    all_analyses = []
+
+    # ---- 读取最新的媒介分析结果 ----
+    media_results_dir = os.path.join(app.config.get('OUTPUT_DIR', 'outputs'), 'analysis_results')
+    if os.path.exists(media_results_dir):
+        media_files = sorted([f for f in os.listdir(media_results_dir) if f.endswith('.json')])
+        if media_files:
+            latest_file = os.path.join(media_results_dir, media_files[-1])
+            try:
+                with open(latest_file, 'r', encoding='utf-8') as f:
+                    raw = json.load(f)
+                full_result = raw.get('full_result', {})
+                wl = full_result.get('workload', {})
+                ql = full_result.get('quality', {})
+                ct = full_result.get('cost', {})
+
+                wl_summary = wl.get('summary', {}) or {}
+                ql_summary = ql.get('summary', {}) or {}
+                ct_summary = ct.get('summary', {}) or {}
+                ct_overall = ct.get('overall_summary', {}) or {}
+
+                # 提取分布数据用于图表
+                group_dist = wl_summary.get('主要小组分布', {})
+                quality_dist_raw = ql_summary.get('质量分布', ql.get('quality_distribution', []))
+                ql_quality_dist = ql.get('quality_distribution', [])
+
+                media_data = {
+                    'analysis_id': raw.get('analysis_id', ''),
+                    'timestamp': raw.get('timestamp', ''),
+                    'category': raw.get('category', ''),
+                    'workload': wl_summary,
+                    'quality': ql_summary,
+                    'cost': ct_summary,
+                    'cost_overall': ct_overall,
+                    'group_distribution': group_dist,
+                    'quality_distribution': ql_quality_dist if isinstance(ql_quality_dist, list) else []
+                }
+
+                all_analyses.append({
+                    'type': 'media',
+                    'label': '媒介分析',
+                    'analysis_id': raw.get('analysis_id', ''),
+                    'timestamp': raw.get('timestamp', ''),
+                    'category': raw.get('category', '')
+                })
+            except Exception as e:
+                logger.warning(f"读取媒介分析结果失败: {e}")
+
+        # 收集所有历史媒介分析用于时间线
+        for fname in reversed(media_files[-6:]):
+            try:
+                with open(os.path.join(media_results_dir, fname), 'r', encoding='utf-8') as f:
+                    raw = json.load(f)
+                all_analyses.append({
+                    'type': 'media',
+                    'label': '媒介分析',
+                    'analysis_id': raw.get('analysis_id', fname.replace('.json', '')),
+                    'timestamp': raw.get('timestamp', ''),
+                    'category': raw.get('category', '')
+                })
+            except Exception:
+                pass
+
+    # ---- 读取最新的笔记分析结果 ----
+    note_results_dir = os.path.join(app.config.get('OUTPUT_DIR', 'outputs'), 'note_analysis_results')
+    if os.path.exists(note_results_dir):
+        note_files = sorted([f for f in os.listdir(note_results_dir) if f.endswith('.json')])
+        if note_files:
+            latest_file = os.path.join(note_results_dir, note_files[-1])
+            try:
+                with open(latest_file, 'r', encoding='utf-8') as f:
+                    raw = json.load(f)
+                result = raw.get('result', {})
+                analysis_types = raw.get('analysis_types', [])
+
+                type_info = {
+                    'content': {'name': '内容表现分析', 'icon': 'fa-chart-bar', 'color': 'primary'},
+                    'value': {'name': '达人价值评估', 'icon': 'fa-user-tie', 'color': 'success'},
+                    'cost': {'name': '成本与ROI分析', 'icon': 'fa-coins', 'color': 'warning'},
+                    'review': {'name': '项目与策略复盘', 'icon': 'fa-chart-line', 'color': 'info'}
+                }
+
+                note_summaries = []
+                # 提取额外图表数据
+                note_charts = {}
+
+                for atype in analysis_types:
+                    r = result.get(atype, {})
+                    overall = r.get('overall', {})
+                    summary = overall.get('summary', {})
+
+                    if not summary:
+                        continue
+
+                    metrics = {}
+                    if atype == 'content':
+                        metrics = {
+                            '总笔记数': summary.get('总笔记数', 0),
+                            '总互动量': summary.get('总互动量', 0),
+                            '平均互动量': summary.get('平均互动量', 0),
+                            '爆款笔记数': summary.get('爆款笔记数', 0)
+                        }
+                        # 量级分布
+                        tier_dist = summary.get('量级分布', {})
+                        if tier_dist:
+                            note_charts['tier_distribution'] = tier_dist
+                        # 类型比较
+                        type_cmp = overall.get('type_comparison', {})
+                        if type_cmp:
+                            note_charts['type_comparison'] = type_cmp
+                    elif atype == 'value':
+                        metrics = {
+                            '总达人数': summary.get('总达人数', 0),
+                            '平均CPE': summary.get('平均CPE', 0),
+                            'KOL数量': summary.get('KOL数量', 0),
+                            'KOC数量': summary.get('KOC数量', 0)
+                        }
+                        high_value = summary.get('高互动达人比例(%)', 0)
+                        if high_value:
+                            note_charts['high_value_ratio'] = high_value
+                    elif atype == 'cost':
+                        metrics = {
+                            '总成本': summary.get('总成本', 0),
+                            '平均CPM': summary.get('平均CPM', 0),
+                            '平均CPE': summary.get('平均CPE', 0),
+                            '有成本数据笔记数': summary.get('有成本数据笔记数', 0)
+                        }
+                        # 按量级成本
+                        tier_cost = summary.get('按量级成本汇总', {})
+                        if tier_cost:
+                            note_charts['tier_cost'] = tier_cost
+                    elif atype == 'review':
+                        metrics = {
+                            '分析项目数': summary.get('分析项目数', 0),
+                            '分析笔记数': summary.get('分析笔记数', 0),
+                            '有效项目数': summary.get('有效项目数', 0),
+                            '最佳项目': summary.get('最佳项目', '未知')
+                        }
+
+                    note_summaries.append({
+                        'type': atype,
+                        'name': type_info.get(atype, {}).get('name', atype),
+                        'icon': type_info.get(atype, {}).get('icon', 'fa-chart-line'),
+                        'color': type_info.get(atype, {}).get('color', 'secondary'),
+                        'metrics': metrics
+                    })
+
+                note_data = {
+                    'analysis_id': raw.get('analysis_id', ''),
+                    'timestamp': raw.get('timestamp', ''),
+                    'summaries': note_summaries,
+                    'charts': note_charts
+                }
+
+                all_analyses.append({
+                    'type': 'note',
+                    'label': '笔记分析',
+                    'analysis_id': raw.get('analysis_id', ''),
+                    'timestamp': raw.get('timestamp', ''),
+                    'category': '笔记分析综合报告'
+                })
+            except Exception as e:
+                logger.warning(f"读取笔记分析结果失败: {e}")
+
+        # 收集历史笔记分析
+        for fname in reversed(note_files[-5:]):
+            try:
+                with open(os.path.join(note_results_dir, fname), 'r', encoding='utf-8') as f:
+                    raw = json.load(f)
+                all_analyses.append({
+                    'type': 'note',
+                    'label': '笔记分析',
+                    'analysis_id': raw.get('analysis_id', fname.replace('.json', '')),
+                    'timestamp': raw.get('timestamp', ''),
+                    'category': '笔记分析综合报告'
+                })
+            except Exception:
+                pass
+
+    # 按时间排序
+    all_analyses.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+    all_analyses = all_analyses[:12]
+
+    return render_template('home.html',
+                          media_data=media_data,
+                          note_data=note_data,
+                          all_analyses=all_analyses)
 
 
 @reports_bp.route('/data-source')

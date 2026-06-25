@@ -26,7 +26,8 @@ from data_sources.db_source import DBSource
 from analyzers import (
     WorkloadAnalyzer, QualityAnalyzer, CostAnalyzer,
     logger, ID_TO_NAME_MAPPING, FLOWER_TO_NAME_MAPPING, NAME_TO_GROUP_MAPPING,
-    convert_pandas_types_to_python, normalize_media_name, get_media_group
+    convert_pandas_types_to_python, normalize_media_name, get_media_group,
+    prepare_workload_data, prepare_quality_data
 )
 from auth.utils import login_required
 from flask import current_app as app
@@ -35,55 +36,10 @@ from utils.csv_to_excel import csv_to_excel
 
 database_bp = Blueprint('database', __name__, url_prefix='/database')
 
-# 全局变量存储分析结果
 analysis_results = {}
-global_analysis_results = {}
 
 
-def prepare_workload_data(df):
-    """
-    为工作量数据准备必要的字段
-    只做必要的字段映射，不进行任何业务计算
-    """
-    from analyzers.utils import normalize_media_name
-    logger.info("为工作量数据准备字段...")
-    df = df.copy()
 
-    # 确保有定档媒介字段
-    if '定档媒介' not in df.columns:
-        if 'schedule_user_name' in df.columns:
-            df['定档媒介'] = df['schedule_user_name']
-            logger.info("使用 'schedule_user_name' 作为定档媒介")
-        elif 'submit_media_user_name' in df.columns:
-            df['定档媒介'] = df['submit_media_user_name']
-            logger.info("使用 'submit_media_user_name' 作为定档媒介")
-        else:
-            df['定档媒介'] = '未知'
-            logger.warning("未找到任何媒介字段，使用默认值'未知'")
-
-    # 标准化定档媒介名称（只做名称映射，不计算业务指标）
-    if '定档媒介' in df.columns:
-        df['定档媒介'] = df['定档媒介'].fillna('未知').astype(str).str.strip()
-        df['定档媒介'] = df['定档媒介'].replace(['', 'nan', 'NaN', 'None', 'null'], '未知')
-        df['定档媒介'] = df['定档媒介'].apply(normalize_media_name)
-
-    # 添加定档媒介小组
-    if '定档媒介小组' not in df.columns:
-        df['定档媒介小组'] = df['定档媒介'].apply(get_media_group)
-
-    # 确保有数据类型字段
-    if '数据类型' not in df.columns:
-        df['数据类型'] = '定档'
-
-    # 确保分析器需要的字段存在
-    if 'schedule_user_name' not in df.columns:
-        df['schedule_user_name'] = df['定档媒介']
-    if 'submit_media_user_id' not in df.columns:
-        df['submit_media_user_id'] = ''
-
-    logger.info(f"工作量数据字段准备完成，定档媒介唯一数: {df['定档媒介'].nunique()}")
-    logger.info(f"工作量数据小组分布: {df['定档媒介小组'].value_counts().to_dict()}")
-    return df
 
 
 def prepare_quality_data(df):
@@ -576,8 +532,6 @@ def db_analysis_submit():
             }
         }
 
-        # 保存到内存
-        global_analysis_results[analysis_id] = analysis_data
         analysis_results[analysis_id] = analysis_data
 
         # 保存到JSON文件（持久化）

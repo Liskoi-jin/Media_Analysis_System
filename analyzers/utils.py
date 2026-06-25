@@ -652,6 +652,115 @@ def deduplicate_dataframe(df: pd.DataFrame, subset: List[str] = None, keep: str 
         return df.drop_duplicates(keep=keep)
 
 
+def basic_field_mapping(df, mapping_dict):
+    """基础字段映射函数"""
+    df = df.copy()
+    for old_col, new_col in mapping_dict.items():
+        if old_col in df.columns and new_col not in df.columns:
+            df[new_col] = df[old_col]
+    return df
+
+
+def prepare_workload_data(df):
+    """为工作量数据准备必要字段（供 upload/database 蓝图共用）"""
+    logger.info("为工作量数据准备字段...")
+    df = df.copy()
+
+    mapping = {
+        'influencer_nickname': '达人昵称',
+        'project_name': '项目名称',
+        'schedule_user_name': 'schedule_user_name',
+        'submit_media_user_id': 'submit_media_user_id',
+        'submit_media_user_name': 'submit_media_user_name',
+        'state': '状态',
+        'follower_count': '粉丝数',
+        'cooperation_quote': '报价',
+        'order_amount': '下单价',
+        'rebate_amount': '返点',
+        'cost_amount': '成本'
+    }
+    df = basic_field_mapping(df, mapping)
+
+    if '定档媒介' not in df.columns:
+        if 'schedule_user_name' in df.columns:
+            df['定档媒介'] = df['schedule_user_name']
+        elif 'submit_media_user_name' in df.columns:
+            df['定档媒介'] = df['submit_media_user_name']
+        else:
+            df['定档媒介'] = '未知'
+
+    df['定档媒介'] = df['定档媒介'].fillna('未知').astype(str).str.strip()
+    df['定档媒介'] = df['定档媒介'].replace(['', 'nan', 'NaN', 'None', 'null'], '未知')
+    df['定档媒介'] = df['定档媒介'].apply(normalize_media_name)
+
+    if '定档媒介小组' not in df.columns:
+        df['定档媒介小组'] = df['定档媒介'].apply(get_media_group)
+
+    if '数据类型' not in df.columns:
+        df['数据类型'] = '定档'
+
+    if 'schedule_user_name' not in df.columns:
+        df['schedule_user_name'] = df['定档媒介']
+    if 'submit_media_user_id' not in df.columns:
+        df['submit_media_user_id'] = ''
+
+    logger.info(f"工作量数据字段准备完成，定档媒介唯一数: {df['定档媒介'].nunique()}")
+    return df
+
+
+def prepare_quality_data(df):
+    """为质量数据准备必要字段（供 upload/database 蓝图共用）"""
+    logger.info("为质量数据准备字段...")
+    df = df.copy()
+
+    mapping = {
+        'influencer_nickname': '达人昵称',
+        'project_name': '项目名称',
+        'submit_media_user_name': 'submit_media_user_name',
+        'submit_media_user_id': 'submit_media_user_id',
+        'state': '状态',
+        'influencer_purpose': '达人用途',
+        'kol_koc_type': '达人量级'
+    }
+    df = basic_field_mapping(df, mapping)
+
+    if '定档媒介' not in df.columns:
+        if 'submit_media_user_name' in df.columns:
+            df['定档媒介'] = df['submit_media_user_name']
+        elif 'schedule_user_name' in df.columns:
+            df['定档媒介'] = df['schedule_user_name']
+        elif 'submit_media_user_id' in df.columns:
+            def map_id_to_name(media_id):
+                if pd.isna(media_id):
+                    return '未知'
+                return ID_TO_NAME_MAPPING.get(str(media_id).replace('.0', ''), '未知')
+            df['定档媒介'] = df['submit_media_user_id'].apply(map_id_to_name)
+        else:
+            df['定档媒介'] = '未知'
+
+    df['定档媒介'] = df['定档媒介'].fillna('未知').astype(str).str.strip()
+    df['定档媒介'] = df['定档媒介'].replace(['', 'nan', 'NaN', 'None', 'null'], '未知')
+    df['定档媒介'] = df['定档媒介'].apply(normalize_media_name)
+
+    if '定档媒介小组' not in df.columns:
+        df['定档媒介小组'] = df['定档媒介'].apply(get_media_group)
+
+    if '定档媒介ID' not in df.columns:
+        if 'submit_media_user_id' in df.columns:
+            df['定档媒介ID'] = df['submit_media_user_id'].astype(str).str.replace('.0', '')
+        else:
+            df['定档媒介ID'] = ''
+
+    if '对应名字' not in df.columns:
+        df['对应名字'] = df['定档媒介']
+
+    if '数据类型' not in df.columns:
+        df['数据类型'] = '提报'
+
+    logger.info(f"质量数据字段准备完成，定档媒介唯一数: {df['定档媒介'].nunique()}")
+    return df
+
+
 # ========== 导出映射表变量 ==========
 __all__ = [
     'logger',
@@ -667,5 +776,8 @@ __all__ = [
     'fill_cost_data_fields',
     'read_file_with_auto_encoding',
     'secure_filename_cn',
-    'load_mappings_from_db'
+    'load_mappings_from_db',
+    'prepare_workload_data',
+    'prepare_quality_data',
+    'basic_field_mapping'
 ]

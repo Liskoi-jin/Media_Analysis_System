@@ -819,8 +819,16 @@ class NoteAnalyzer:
 
         return validation[:50]
 
+    @staticmethod
+    def _min_max_norm(series: pd.Series) -> pd.Series:
+        """Min-Max 归一化，处理单值/全零等边界情况"""
+        mn, mx = series.min(), series.max()
+        if mx == mn:
+            return pd.Series([0.5] * len(series), index=series.index)
+        return (series - mn) / (mx - mn)
+
     def _identify_high_value_influencers(self) -> List[Dict]:
-        """识别高性价比达人"""
+        """识别高性价比达人 - 基于综合评分"""
         df = self.df.copy()
 
         if 'cpe' not in df.columns:
@@ -831,6 +839,14 @@ class NoteAnalyzer:
         if len(df) == 0:
             return []
 
+        # 确保互动率字段存在
+        if 'interaction_rate' not in df.columns:
+            df['interaction_rate'] = 0.0
+
+        WEIGHT_CPE = 0.4
+        WEIGHT_INTERACTION = 0.3
+        WEIGHT_RATE = 0.3
+
         high_value = []
 
         for tier in self.INFLUENCER_TIERS:
@@ -838,18 +854,44 @@ class NoteAnalyzer:
             if tier_df.empty:
                 continue
 
-            if tier == 'KOL':
-                cpe_threshold = tier_df['cpe'].quantile(0.3) if len(tier_df) > 0 else 8
-            elif tier == '十万KOL':
-                cpe_threshold = tier_df['cpe'].quantile(0.3) if len(tier_df) > 0 else 10
-            elif tier == 'KOC':
-                cpe_threshold = tier_df['cpe'].quantile(0.3) if len(tier_df) > 0 else 4
+            if len(tier_df) < 2:
+                k = len(tier_df)
             else:
-                cpe_threshold = tier_df['cpe'].quantile(0.3) if len(tier_df) > 0 else 6
+                k = min(20, len(tier_df))
 
-            high_value_df = tier_df[tier_df['cpe'] <= cpe_threshold].nlargest(20, 'interaction_count')
+            cpe_norm = self._min_max_norm(tier_df['cpe'])
+            interaction_norm = self._min_max_norm(tier_df['interaction_count'])
+            rate_norm = self._min_max_norm(tier_df['interaction_rate'])
 
-            for _, row in high_value_df.iterrows():
+            tier_df = tier_df.copy()
+            tier_df['_score'] = (
+                WEIGHT_CPE * (1 - cpe_norm) +
+                WEIGHT_INTERACTION * interaction_norm +
+                WEIGHT_RATE * rate_norm
+            )
+
+            top_df = tier_df.nlargest(k, '_score')
+
+            cpe_pct = tier_df['cpe'].quantile(0.2)
+            interaction_pct = tier_df['interaction_count'].quantile(0.8)
+            rate_pct = tier_df['interaction_rate'].quantile(0.8)
+
+            for _, row in top_df.iterrows():
+                reasons = []
+                if row['cpe'] <= cpe_pct:
+                    reasons.append(f"CPE仅{round(row['cpe'], 2)}元")
+                if row['interaction_count'] >= interaction_pct:
+                    reasons.append(f"互动{int(row['interaction_count'])}")
+                if row['interaction_rate'] >= rate_pct:
+                    reasons.append(f"互动率{round(row['interaction_rate'], 2)}%")
+
+                if len(reasons) >= 2:
+                    reason = "，".join(reasons) + "，综合表现优异"
+                elif reasons:
+                    reason = reasons[0] + "，性价比突出"
+                else:
+                    reason = f"综合评分{round(row['_score'], 2)}，表现均衡"
+
                 high_value.append({
                     '达人昵称': row.get('influencer_nickname', '未知'),
                     '达人量级': tier,
@@ -857,13 +899,14 @@ class NoteAnalyzer:
                     '成本': round(row['cost_amount'], 2),
                     'CPE': round(row['cpe'], 2),
                     '互动率(%)': round(row.get('interaction_rate', 0), 2),
-                    '推荐理由': f"CPE低至{round(row['cpe'], 2)}元，互动效果优秀",
+                    '综合评分': round(row['_score'], 4),
+                    '推荐理由': reason,
                     'pgy_url': row.get('pgy_url', ''),
                     'home_url': row.get('home_url', ''),
                     'note_url': row.get('note_url', '')
                 })
 
-        return sorted(high_value, key=lambda x: x['CPE'])[:50]
+        return sorted(high_value, key=lambda x: x['综合评分'], reverse=True)[:50]
 
     def _calculate_influencer_summary(self) -> Dict[str, Any]:
         """计算达人价值汇总"""

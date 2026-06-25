@@ -12,7 +12,8 @@ from analyzers import (
     WorkloadAnalyzer, QualityAnalyzer, CostAnalyzer,
     logger, ID_TO_NAME_MAPPING, FLOWER_TO_NAME_MAPPING, NAME_TO_GROUP_MAPPING,
     convert_pandas_types_to_python, read_file_with_auto_encoding, secure_filename_cn,
-    normalize_media_name, get_media_group
+    normalize_media_name, get_media_group,
+    prepare_workload_data, prepare_quality_data, basic_field_mapping
 )
 from data_sources.file_source import FileSource
 from auth.utils import login_required
@@ -21,17 +22,6 @@ from flask import current_app as app
 upload_bp = Blueprint('upload', __name__, url_prefix='/upload')
 
 analysis_results = {}
-global_analysis_results = {}
-
-
-def basic_field_mapping(df, mapping_dict):
-    """基础字段映射函数"""
-    df = df.copy()
-    for old_col, new_col in mapping_dict.items():
-        if old_col in df.columns and new_col not in df.columns:
-            df[new_col] = df[old_col]
-            logger.debug(f"映射字段: {old_col} -> {new_col}")
-    return df
 
 
 def filter_by_selected_groups(df, selected_groups):
@@ -73,85 +63,7 @@ def filter_by_selected_groups(df, selected_groups):
     return filtered_df
 
 
-def prepare_workload_data(df):
-    """为工作量数据准备必要的字段 - 极简版"""
-    logger.info("为工作量数据准备字段...")
-    df = df.copy()
 
-    # 字段映射
-    mapping = {
-        'influencer_nickname': '达人昵称',
-        'project_name': '项目名称',
-        'schedule_user_name': 'schedule_user_name',
-        'submit_media_user_id': 'submit_media_user_id',
-        'submit_media_user_name': 'submit_media_user_name',
-        'state': '状态',
-        'follower_count': '粉丝数',
-        'cooperation_quote': '报价',
-        'order_amount': '下单价',
-        'rebate_amount': '返点',
-        'cost_amount': '成本'
-    }
-    df = basic_field_mapping(df, mapping)
-
-    # 确保定档媒介字段存在
-    if '定档媒介' not in df.columns:
-        if 'schedule_user_name' in df.columns:
-            df['定档媒介'] = df['schedule_user_name']
-            logger.info("使用 'schedule_user_name' 作为定档媒介")
-        elif 'submit_media_user_name' in df.columns:
-            df['定档媒介'] = df['submit_media_user_name']
-            logger.info("使用 'submit_media_user_name' 作为定档媒介")
-        else:
-            df['定档媒介'] = '未知'
-            logger.warning("未找到任何媒介字段，使用默认值'未知'")
-
-    # 标准化媒介名称
-    if '定档媒介' in df.columns:
-        df['定档媒介'] = df['定档媒介'].fillna('未知').astype(str).str.strip()
-        df['定档媒介'] = df['定档媒介'].replace(['', 'nan', 'NaN', 'None', 'null'], '未知')
-        df['定档媒介'] = df['定档媒介'].apply(normalize_media_name)
-
-    # 添加媒介小组
-    df['定档媒介小组'] = df['定档媒介'].apply(get_media_group)
-
-    # 确保数据类型字段
-    if '数据类型' not in df.columns:
-        df['数据类型'] = '定档'
-
-    logger.info(f"工作量数据字段准备完成，定档媒介唯一数: {df['定档媒介'].nunique()}")
-    logger.info(f"工作量数据小组分布: {df['定档媒介小组'].value_counts().to_dict()}")
-    return df
-
-
-def prepare_quality_data(df):
-    """为质量数据准备必要的字段 - 极简版"""
-    logger.info("为质量数据准备字段...")
-    df = df.copy()
-
-    # 字段映射
-    mapping = {
-        'influencer_nickname': '达人昵称',
-        'project_name': '项目名称',
-        'submit_media_user_name': 'submit_media_user_name',
-        'submit_media_user_id': 'submit_media_user_id',
-        'state': '状态',
-        'influencer_purpose': '达人用途',
-        'kol_koc_type': '达人量级'
-    }
-    df = basic_field_mapping(df, mapping)
-
-    # 确保定档媒介字段存在
-    if '定档媒介' not in df.columns:
-        if 'submit_media_user_name' in df.columns:
-            df['定档媒介'] = df['submit_media_user_name']
-            logger.info("使用 'submit_media_user_name' 作为定档媒介")
-        elif 'schedule_user_name' in df.columns:
-            df['定档媒介'] = df['schedule_user_name']
-            logger.info("使用 'schedule_user_name' 作为定档媒介")
-        else:
-            df['定档媒介'] = '未知'
-            logger.warning("未找到任何媒介字段，使用默认值'未知'")
 
     # 标准化媒介名称
     if '定档媒介' in df.columns:
@@ -506,7 +418,6 @@ def file_upload_handler():
         }
 
         analysis_results[analysis_id] = analysis_data_full
-        global_analysis_results[analysis_id] = analysis_data_full
 
         # 保存到文件
         result_file_path = os.path.join(app.config.get('OUTPUT_DIR', 'outputs'), 'analysis_results', f'{analysis_id}.json')

@@ -143,13 +143,17 @@ def build_excel(data, note_data, week_label='', is_monthly=False):
         ws = wb.create_sheet()
         cost_perf = build_cost_performance_data(data)
         if cost_perf:
-            headers = ['媒介组', '定档达人数', '平均返点比例(%)', '返点比例最高', '返点比例最低']
-            data_rows = [[r['group'], str(r['dingdang']), r['avg_rebate'], r['high'], r['low']] for r in cost_perf]
+            headers = ['媒介组', '定档达人数', '总项目数', '平均成本(元)', '平均下单价(元)', '平均返点比例(%)', '返点比例最高', '返点比例最低']
+            data_rows = [[r['group'], str(r['dingdang']),
+                          str(r['total_project']),
+                          f"{r['avg_cost']:.2f}" if isinstance(r['avg_cost'], (int, float)) else str(r['avg_cost']),
+                          f"{r['avg_order']:.2f}" if isinstance(r['avg_order'], (int, float)) else str(r['avg_order']),
+                          r['avg_rebate'], r['high'], r['low']] for r in cost_perf]
             _write_sheet(ws, '成本发挥', headers, data_rows)
             BLUE2_FILL = PatternFill(start_color='42A5F5', end_color='42A5F5', fill_type='solid')
             BLUE1_FILL = PatternFill(start_color='E3F2FD', end_color='E3F2FD', fill_type='solid')
             BLACK_BOLD_FONT = Font(name='微软雅黑', bold=True, color='000000', size=10)
-            for c in range(1, 6):
+            for c in range(1, 9):
                 cell = ws.cell(row=1, column=c)
                 cell.fill = BLUE2_FILL
                 cell.font = BLACK_BOLD_FONT
@@ -163,31 +167,38 @@ def build_excel(data, note_data, week_label='', is_monthly=False):
         if rebate_rows:
             headers = ['定档媒介', '定档达人数', '所属小组', '平均返点比例(%)', '返点比例最大值(%)', '返点比例最小值(%)', '返点比例中位数(%)',
                        '总返点金额(元)', '平均返点金额(元)', '返点金额最大值(元)', '返点金额最小值(元)', '返点金额中位数(元)',
-                       '返点表现评估', '返点优化建议']
+                       '总下单价(元)', '平均下单价(元)', '返点表现评估', '返点优化建议']
             data_rows = []
             for r in rebate_rows:
                 data_rows.append([r['name'], str(r['dingdang']), r['group'], r['avg_rebate'], r['max_rebate'], r['min_rebate'],
                                   r['median_rebate'], f"{r['total_rebate_amt']:.2f}", f"{r['avg_rebate_amt']:.2f}",
                                   f"{r['max_rebate_amt']:.2f}", f"{r['min_rebate_amt']:.2f}", f"{r['median_rebate_amt']:.2f}",
+                                  f"{r['total_order']:.2f}" if isinstance(r['total_order'], (int, float)) else str(r['total_order']),
+                                  f"{r['avg_order']:.2f}" if isinstance(r['avg_order'], (int, float)) else str(r['avg_order']),
                                   r['evaluation'], r['suggestion']])
             _write_sheet(ws, '返点分析', headers, data_rows)
-            _recolor_header_firstcol(ws, 14)
+            _recolor_header_firstcol(ws, 16)
 
         # Sheet 6: 达人量级分析
         ws_index += 1
         ws = wb.create_sheet()
         lvl_rows = build_level_analysis_data(data)
         if lvl_rows:
-            headers = ['定档媒介', '达人量级', '达人数', '所属小组', '总成本(元)', '平均成本(元)', '总返点金额(元)', '平均返点金额(元)',
-                       '平均返点比例(%)', '总互动量', '平均互动量', '总阅读量', '平均阅读量', '平均CPE', '平均CPM']
+            headers = ['定档媒介', '达人量级', '达人数', '所属小组', '总成本(元)', '平均成本(元)',
+                       '总下单价(元)', '平均下单价(元)', '总返点金额(元)', '平均返点金额(元)',
+                       '平均返点比例(%)', '总互动量', '平均互动量', '总阅读量', '平均阅读量',
+                       '平均CPE', '平均CPM']
             data_rows = []
             for r in lvl_rows:
-                data_rows.append([r['name'], r['level'], str(r['count']), r['group'], f"{r['total_cost']:.2f}", f"{r['avg_cost']:.2f}",
+                data_rows.append([r['name'], r['level'], str(r['count']), r['group'],
+                                  f"{r['total_cost']:.2f}", f"{r['avg_cost']:.2f}",
+                                  f"{r['total_order']:.2f}" if isinstance(r['total_order'], (int, float)) else str(r['total_order']),
+                                  f"{r['avg_order']:.2f}" if isinstance(r['avg_order'], (int, float)) else str(r['avg_order']),
                                   f"{r['total_rebate']:.2f}", f"{r['avg_rebate']:.2f}", r['avg_rebate_pct'],
                                   f"{r['total_interact']:.0f}", f"{r['avg_interact']:.2f}", f"{r['total_read']:.0f}",
                                   f"{r['avg_read']:.2f}", f"{r['avg_cpe']:.2f}", f"{r['avg_cpm']:.2f}"])
             _write_sheet(ws, '达人量级分析', headers, data_rows)
-            _recolor_header_firstcol(ws, 15)
+            _recolor_header_firstcol(ws, 17)
 
         # Sheet 7: 成本分析
         ws_index += 1

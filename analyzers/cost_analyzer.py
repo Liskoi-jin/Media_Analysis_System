@@ -795,6 +795,14 @@ class CostAnalyzer:
                     group_analysis['平均返点比例(%)'] = '0.00%'
                     group_analysis['返点表现'] = '无返点'
 
+                # 下单价统计
+                if '下单价' in group_data.columns:
+                    group_analysis['总下单价(元)'] = round(pd.to_numeric(group_data['下单价'], errors='coerce').sum(), 2)
+                    group_analysis['平均下单价(元)'] = round(pd.to_numeric(group_data['下单价'], errors='coerce').mean(), 2)
+                else:
+                    group_analysis['总下单价(元)'] = 0
+                    group_analysis['平均下单价(元)'] = 0
+
                 analysis_results.append(group_analysis)
 
         # 转换为DataFrame并筛选字段
@@ -804,8 +812,8 @@ class CostAnalyzer:
             # 只保留指定字段
             required_columns = [
                 '媒介小组', '总达人数', '总项目数', '媒介人数', '已发布数', '未发布数',
-                '发布率(%)', '总成本(元)', '平均成本(元)', '总返点金额(元)',
-                '平均返点金额(元)', '平均返点比例(%)', '返点表现'
+                '发布率(%)', '总成本(元)', '平均成本(元)', '总下单价(元)', '平均下单价(元)',
+                '总返点金额(元)', '平均返点金额(元)', '平均返点比例(%)', '返点表现'
             ]
 
             # 只保留存在的字段
@@ -1264,6 +1272,14 @@ class CostAnalyzer:
                 media_data['返点表现评估'] = '无返点'
                 media_data['返点优化建议'] = '无返点数据'
 
+            # 平均下单价
+            if '下单价' in group.columns:
+                media_data['总下单价(元)'] = round(pd.to_numeric(group['下单价'], errors='coerce').sum(), 2)
+                media_data['平均下单价(元)'] = round(pd.to_numeric(group['下单价'], errors='coerce').mean(), 2)
+            else:
+                media_data['总下单价(元)'] = 0
+                media_data['平均下单价(元)'] = 0
+
             analysis_results.append(media_data)
 
         # 转换为DataFrame并筛选字段
@@ -1275,7 +1291,7 @@ class CostAnalyzer:
                 '定档媒介', '定档达人数', '所属小组', '平均返点比例(%)', '返点比例最大值(%)',
                 '返点比例最小值(%)', '返点比例中位数(%)', '返点比例分布', '总返点金额(元)',
                 '平均返点金额(元)', '返点金额最大值(元)', '返点金额最小值(元)', '返点金额中位数(元)',
-                '返点表现评估', '返点优化建议'
+                '总下单价(元)', '平均下单价(元)', '返点表现评估', '返点优化建议'
             ]
 
             # 只保留存在的字段
@@ -1591,6 +1607,12 @@ class CostAnalyzer:
                 media_data['效果评估'] = 'N/A'
                 media_data['效果建议'] = 'N/A'
 
+            # 平均下单价
+            if '下单价' in group.columns:
+                media_data['平均下单价(元)'] = round(pd.to_numeric(group['下单价'], errors='coerce').mean(), 2)
+            else:
+                media_data['平均下单价(元)'] = 0
+
             analysis_results.append(media_data)
 
         # 转换为DataFrame并筛选字段
@@ -1606,7 +1628,7 @@ class CostAnalyzer:
                 'CPE最大值', 'CPE中位数', 'CPE评估', '每元互动量', '成本效益评估',
                 '平均CPM', 'CPM最小值', 'CPM最大值', 'CPM中位数', 'CPM标准差',
                 'CPM评估', 'CPM/CPE比率', '性价比评估', '性价比分析',
-                '平均互动率(%)', '互动率评估', '每元阅读量'
+                '平均互动率(%)', '互动率评估', '每元阅读量', '平均下单价(元)'
             ]
 
             # 只保留存在的字段
@@ -1728,6 +1750,14 @@ class CostAnalyzer:
                 else:
                     media_data['平均CPM'] = 0
 
+            # 下单价统计
+            if '下单价' in group.columns:
+                media_data['总下单价(元)'] = round(pd.to_numeric(group['下单价'], errors='coerce').sum(), 2)
+                media_data['平均下单价(元)'] = round(pd.to_numeric(group['下单价'], errors='coerce').mean(), 2)
+            else:
+                media_data['总下单价(元)'] = 0
+                media_data['平均下单价(元)'] = 0
+
             analysis_results.append(media_data)
 
         # 转换为DataFrame并筛选字段
@@ -1737,9 +1767,9 @@ class CostAnalyzer:
             # 只保留指定字段
             required_columns = [
                 '定档媒介', '达人量级', '达人数', '所属小组', '总成本(元)',
-                '平均成本(元)', '总返点金额(元)', '平均返点金额(元)', '平均返点比例(%)',
-                '总互动量', '平均互动量', '总阅读量', '平均阅读量', '平均CPE',
-                '平均CPM'
+                '平均成本(元)', '总下单价(元)', '平均下单价(元)', '总返点金额(元)',
+                '平均返点金额(元)', '平均返点比例(%)', '总互动量', '平均互动量',
+                '总阅读量', '平均阅读量', '平均CPE', '平均CPM'
             ]
 
             # 只保留存在的字段
@@ -1975,6 +2005,14 @@ class CostAnalyzer:
                 media_data['综合评价'] = 'N/A'
                 media_data['合作建议'] = 'N/A'
 
+            # 下单价统计
+            if '下单价' in group.columns:
+                media_data['总下单价(元)'] = round(pd.to_numeric(group['下单价'], errors='coerce').sum(), 2)
+                media_data['平均下单价(元)'] = round(pd.to_numeric(group['下单价'], errors='coerce').mean(), 2)
+            else:
+                media_data['总下单价(元)'] = 0
+                media_data['平均下单价(元)'] = 0
+
             analysis_results.append(media_data)
 
         # 转换为DataFrame并筛选字段
@@ -1984,9 +2022,10 @@ class CostAnalyzer:
             # 只保留指定字段
             required_columns = [
                 '定档媒介', '定档达人数', '合作项目数', '笔记类型分布', '所属小组',
-                '总成本(元)', '平均成本(元)', '总返点金额(元)', '平均返点金额(元)',
-                '平均返点比例(%)', '总互动量', '平均互动量', '总阅读量',
-                '综合得分', '综合评价', '合作建议', '平均CPE', '每元互动量', '平均CPM'
+                '总成本(元)', '平均成本(元)', '总下单价(元)', '平均下单价(元)',
+                '总返点金额(元)', '平均返点金额(元)', '平均返点比例(%)', '总互动量',
+                '平均互动量', '总阅读量', '综合得分', '综合评价', '合作建议',
+                '平均CPE', '每元互动量', '平均CPM'
             ]
 
             # 只保留存在的字段

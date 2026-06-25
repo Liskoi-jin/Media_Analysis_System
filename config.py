@@ -8,23 +8,8 @@ load_dotenv()
 
 
 class Config:
-    """应用配置类"""
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'your-production-secret-key'
-
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
-    OUTPUT_FOLDER = os.path.join(BASE_DIR, 'outputs')
-
-    MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 100MB
-    ALLOWED_EXTENSIONS = {'csv', 'xlsx', 'xls', 'json'}
-
-    LOG_LEVEL = 'INFO'
-    LOG_FILE = os.path.join(BASE_DIR, 'logs/app.log')
-
-
-class BaseConfig(Config):
-    """基础配置类"""
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
+    """应用配置类（所有配置从环境变量读取）"""
+    SECRET_KEY = os.environ.get('SECRET_KEY', '')
     PERMANENT_SESSION_LIFETIME = timedelta(seconds=int(os.environ.get('PERMANENT_SESSION_LIFETIME', 86400)))
 
     MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 52428800))
@@ -53,20 +38,16 @@ class BaseConfig(Config):
     SCHEDULE_WEEKLY_DAY = os.environ.get('SCHEDULE_WEEKLY_DAY', 'Monday')
     SCHEDULE_WEEKLY_TIME = os.environ.get('SCHEDULE_WEEKLY_TIME', '09:00')
 
-    # ========== 新增：报告配置 ==========
     REPORT_OUTPUT_DIR = os.environ.get('REPORT_OUTPUT_DIR', 'outputs/reports')
     REPORT_TEMPLATE_DIR = os.environ.get('REPORT_TEMPLATE_DIR', 'web/templates/reports')
 
-    # 报告调度配置
     REPORT_DAILY_HOUR = int(os.environ.get('REPORT_DAILY_HOUR', 9))
     REPORT_WEEKLY_DAY = os.environ.get('REPORT_WEEKLY_DAY', 'Monday')
     REPORT_WEEKLY_HOUR = int(os.environ.get('REPORT_WEEKLY_HOUR', 9))
 
-    # 异常任务配置
     ABNORMAL_TASK_AUTO_CREATE = os.environ.get('ABNORMAL_TASK_AUTO_CREATE', 'true').lower() == 'true'
     ABNORMAL_TASK_EXPIRY_DAYS = int(os.environ.get('ABNORMAL_TASK_EXPIRY_DAYS', 30))
 
-    # 笔记评价阈值配置
     NOTE_CPM_GOOD = float(os.environ.get('NOTE_CPM_GOOD', 30))
     NOTE_CPM_MEDIUM = float(os.environ.get('NOTE_CPM_MEDIUM', 50))
     NOTE_CPE_GOOD = float(os.environ.get('NOTE_CPE_GOOD', 5))
@@ -75,35 +56,16 @@ class BaseConfig(Config):
     NOTE_CTR_MEDIUM = float(os.environ.get('NOTE_CTR_MEDIUM', 3))
 
 
-class DevelopmentConfig(BaseConfig):
-    """开发环境配置"""
-    DEBUG = True
-    FLASK_ENV = 'development'
-
-
-class ProductionConfig(BaseConfig):
-    """生产环境配置"""
-    DEBUG = False
-    FLASK_ENV = 'production'
-
-
-config = {
-    'development': DevelopmentConfig,
-    'production': ProductionConfig,
-    'default': ProductionConfig
-}
-
-
 def create_directories():
     """创建必要的目录"""
     dirs = [
-        BaseConfig.UPLOAD_FOLDER,
-        BaseConfig.OUTPUT_DIR,
-        BaseConfig.EXCEL_OUTPUT_DIR,
-        BaseConfig.HTML_OUTPUT_DIR,
-        BaseConfig.TEMP_DIR,
-        BaseConfig.REPORT_OUTPUT_DIR,
-        os.path.dirname(BaseConfig.LOG_FILE)
+        Config.UPLOAD_FOLDER,
+        Config.OUTPUT_DIR,
+        Config.EXCEL_OUTPUT_DIR,
+        Config.HTML_OUTPUT_DIR,
+        Config.TEMP_DIR,
+        Config.REPORT_OUTPUT_DIR,
+        os.path.dirname(Config.LOG_FILE)
     ]
     for dir_path in dirs:
         os.makedirs(dir_path, exist_ok=True)
@@ -111,15 +73,15 @@ def create_directories():
 
 create_directories()
 
-# ========== 数据库配置 ==========
+# ========== 数据库配置（从环境变量读取，不设默认密码）==========
 DB_CONFIG = {
-    'host': 'localhost',
-    'port': 3306,
-    'user': 'root',
-    'password': 'root',
-    'database': 'ai_media_db',
-    'charset': 'utf8mb4'
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'port': int(os.getenv('DB_PORT', 3306)),
+    'user': os.getenv('DB_USER', 'root'),
+    'password': os.getenv('DB_PASSWORD', ''),
+    'database': os.getenv('DB_NAME', 'ai_media_db'),
+    'charset': os.getenv('DB_CHARSET', 'utf8mb4')
 }
 
-SECRET_KEY = os.getenv('AUTH_SECRET_KEY', 'ai_media_auth_2025_secure')
+SECRET_KEY = os.getenv('AUTH_SECRET_KEY', os.getenv('SECRET_KEY', ''))
 PERMANENT_SESSION_LIFETIME = 3600 * 24
