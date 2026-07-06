@@ -1236,10 +1236,12 @@ a:hover {
 
 /* 侧边栏用户信息 */
 .sidebar-user {
-    background: rgba(99, 102, 241, 0.12);
-    border-radius: 12px;
-    padding: 16px;
-    border: 1px solid rgba(99, 102, 241, 0.25);
+    background: transparent;
+    border-radius: 0;
+    padding: 14px 12px;
+    border: 0;
+    border-bottom: 1px solid var(--border-primary);
+    box-shadow: none;
 }
 
 .sidebar-user .dropdown-toggle {

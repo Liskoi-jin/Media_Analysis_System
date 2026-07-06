@@ -175,14 +175,10 @@ class CostAnalyzer:
             mask = df['报价'] > 0
             df.loc[mask, '返点比例'] = df.loc[mask, '返点金额'] / df.loc[mask, '报价']
 
-            # 限制返点比例在0-1之间
-            df.loc[df['返点比例'] > 1, '返点比例'] = 1
-            df.loc[df['返点比例'] < 0, '返点比例'] = 0
-
             valid_count = (df['返点比例'] > 0).sum()
             if valid_count > 0:
                 avg_ratio = df.loc[df['返点比例'] > 0, '返点比例'].mean() * 100
-                logger.info(f"返点比例计算完成，有效数据: {valid_count} 条，平均返点比例: {avg_ratio:.2f}%")
+                logger.info(f"返点比例计算完成（保留真实比例），有效数据: {valid_count} 条，平均返点比例: {avg_ratio:.2f}%")
 
         # ========== 成本计算 - 不重新计算，直接使用原始值 ==========
         # 确保成本字段是数值类型，但不重新计算
@@ -317,7 +313,7 @@ class CostAnalyzer:
     def _mark_invalid_data(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         标记无效数据和异常数据（按照新逻辑）
-        无效数据（不参与分析）：成本为0或缺失
+        无效数据（不参与分析）：成本/报价/下单价为0、缺失或小于0
         异常数据（参与分析）：返点比例异常等
         """
         logger.info("标记无效数据和异常数据（按照新逻辑）")
@@ -343,17 +339,35 @@ class CostAnalyzer:
 
         # 打印调试信息
         logger.info(f"成本字段统计: 总数据 {len(df)} 条")
-        logger.info(f"成本为0的数据: {(df['成本'] == 0).sum()} 条")
-        logger.info(f"成本缺失的数据: {df['成本'].isna().sum()} 条")
+        logger.info(f"成本<=0或缺失的数据: {((df['成本'] <= 0) | df['成本'].isna()).sum()} 条")
+        logger.info(f"报价<=0或缺失的数据: {((df['报价'] <= 0) | df['报价'].isna()).sum()} 条")
+        logger.info(f"下单价<=0或缺失的数据: {((df['下单价'] <= 0) | df['下单价'].isna()).sum()} 条")
 
         # 步骤3: 检查各种情况
 
-        # 情况1: 成本为0或缺失 → 无效数据（不参与分析）
-        mask_zero_cost = (df['成本'] == 0) | (df['成本'].isna())
-        logger.info(f"成本为0或缺失的数据: {mask_zero_cost.sum()} 条")
+        # 情况1: 成本/报价/下单价为0、缺失或小于0 → 无效数据（不参与分析）
+        invalid_field_masks = {
+            '成本': (df['成本'] <= 0) | df['成本'].isna(),
+            '报价': (df['报价'] <= 0) | df['报价'].isna(),
+            '下单价': (df['下单价'] <= 0) | df['下单价'].isna()
+        }
+        mask_invalid_amount = invalid_field_masks['成本'] | invalid_field_masks['报价'] | invalid_field_masks['下单价']
+        logger.info(f"成本/报价/下单价为0、缺失或小于0的数据: {mask_invalid_amount.sum()} 条")
 
-        df.loc[mask_zero_cost, '成本无效'] = True
-        df.loc[mask_zero_cost, '成本无效原因'] = '成本为0或缺失'
+        def build_invalid_reason(row):
+            reasons = []
+            for field in ['成本', '报价', '下单价']:
+                value = row.get(field, np.nan)
+                if pd.isna(value):
+                    reasons.append(f'{field}缺失')
+                elif value < 0:
+                    reasons.append(f'{field}小于0')
+                elif value == 0:
+                    reasons.append(f'{field}为0或缺失')
+            return '；'.join(reasons) if reasons else '有效数据'
+
+        df.loc[mask_invalid_amount, '成本无效'] = True
+        df.loc[mask_invalid_amount, '成本无效原因'] = df.loc[mask_invalid_amount].apply(build_invalid_reason, axis=1)
 
         # 情况2: 返点比例异常 → 异常数据（参与分析）
         # 返点比例 > 0.5 (50%) 或 < -0.1 (-10%)，视为异常
@@ -601,7 +615,7 @@ class CostAnalyzer:
                 self.result["overall_summary"] = {"提示": "无数据进行分析"}
                 return self.result
 
-            # 排除无效数据（成本为0或缺失）
+            # 排除无效数据（成本/报价/下单价为0、缺失或小于0）
             analysis_df = self.all_df[~self.all_df['成本无效']].copy()
 
             logger.info(f"分析数据准备: 总数据 {len(self.all_df)} 条, 排除无效数据后 {len(analysis_df)} 条")
@@ -2125,12 +2139,14 @@ class CostAnalyzer:
 
             # 确保有无效数据原因分布（即使为空也要初始化）
             if not invalid_reasons:
-                # 如果没有具体的无效原因，统计成本为0的情况
-                if '成本' in invalid_df.columns:
-                    cost_zero_count = (invalid_df['成本'] == 0).sum()
-                    if cost_zero_count > 0:
-                        invalid_reasons['成本为0'] = int(cost_zero_count)
-                        invalid_cost_by_reason['成本为0'] = round(float(invalid_df[invalid_df['成本'] == 0]['成本'].sum()), 2)
+                # 如果没有具体的无效原因，按金额字段兜底统计
+                for field in ['成本', '报价', '下单价']:
+                    if field in invalid_df.columns:
+                        invalid_count = ((invalid_df[field] <= 0) | invalid_df[field].isna()).sum()
+                        if invalid_count > 0:
+                            reason = f'{field}为0、缺失或小于0'
+                            invalid_reasons[reason] = int(invalid_count)
+                            invalid_cost_by_reason[reason] = round(float(invalid_df[(invalid_df[field] <= 0) | invalid_df[field].isna()]['成本'].sum()), 2)
 
             summary['无效数据原因分布'] = invalid_reasons
 
@@ -2348,8 +2364,12 @@ class CostAnalyzer:
 
             # 判断属于哪种情况
             invalid_type = '其他原因'
-            if '成本为0或缺失' in invalid_reason:
-                invalid_type = '成本为0或缺失'
+            if '成本' in invalid_reason:
+                invalid_type = '成本无效'
+            elif '报价' in invalid_reason:
+                invalid_type = '报价无效'
+            elif '下单价' in invalid_reason:
+                invalid_type = '下单价无效'
 
             # 安全地获取数值字段
             def safe_float(value, default=0.0):

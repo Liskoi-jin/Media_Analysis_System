@@ -705,6 +705,12 @@ def _handle_import_file():
         flash(f'❌ 导入处理失败: {str(e)}', 'danger')
         return redirect(request.url)
     finally:
+        # 关闭数据库连接（dry_run 模式或异常时 conn 未关闭）
+        try:
+            if conn not in (None, False):
+                conn.close()
+        except Exception:
+            pass
         # 清理临时文件
         _cleanup_temp_files(temp_files, locals().get('dry_run', False), session)
 
@@ -797,12 +803,35 @@ def _get_db_connection_and_columns():
 
 
 def _get_existing_unique_fields(valid_columns):
-    """获取存在的唯一键字段"""
+    """获取用于匹配的唯一键字段
+
+    匹配优先级:
+    1. 真正的业务主键: id, project_influencer_id, home_url, pgy_url, influencer_id, xhs_id
+    2. 复合键: influencer_nickname + project_id, 或 influencer_nickname + project_name (必须同时存在)
+    3. 无唯一键 → 全部作为新增
+    """
+    # 优先使用业务主键
     unique_key_fields = [
         'id', 'project_influencer_id', 'home_url', 'pgy_url',
-        'influencer_id', 'xhs_id', 'influencer_nickname', 'project_id', 'project_name'
+        'influencer_id', 'xhs_id'
     ]
-    return [field for field in unique_key_fields if field in valid_columns]
+    result = [field for field in unique_key_fields if field in valid_columns]
+
+    # 如果没有业务主键，尝试复合键: influencer_nickname + (project_id 或 project_name)
+    if not result:
+        has_nickname = 'influencer_nickname' in valid_columns
+        has_project_id = 'project_id' in valid_columns
+        has_project_name = 'project_name' in valid_columns
+        if has_nickname and (has_project_id or has_project_name):
+            compound = ['influencer_nickname']
+            if has_project_id:
+                compound.append('project_id')
+            else:
+                compound.append('project_name')
+            logger.info(f"无业务主键，使用复合键匹配: {compound}")
+            return compound
+
+    return result
 
 
 def _get_updateable_fields(valid_columns, existing_unique_fields, preserve_fields):
@@ -1036,12 +1065,17 @@ def _execute_actual_import(df, valid_columns, existing_unique_fields, updateable
                         # 检查记录是否存在（通过唯一键）
                         check_sql = f"SELECT id FROM lgc_project_influencer WHERE {' AND '.join(where_clauses)}"
                         cursor.execute(check_sql, check_values)
-                        existing_record = cursor.fetchone()
-                        exists = existing_record is not None
+                        existing_records = cursor.fetchall()
+                        exists = len(existing_records) > 0
 
                         if exists:
-                            # ========== 记录存在：执行更新 ==========
+                            # 如果匹配到多条记录，取id最大的那条（最新的记录）
+                            if len(existing_records) > 1:
+                                existing_ids = [r['id'] for r in existing_records]
+                                logger.warning(f"第 {index + 2} 行: 唯一键匹配到 {len(existing_records)} 条记录 (ids={existing_ids[:5]})，取最新记录")
+                            existing_record = max(existing_records, key=lambda r: r['id'])
                             existing_id = existing_record['id']
+                            # ========== 记录存在：执行更新 ==========
 
                             if updateable_fields:
                                 # 获取可更新字段的值

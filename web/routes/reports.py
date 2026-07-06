@@ -362,6 +362,239 @@ def dashboard(analysis_id=None):
                           upload_success=upload_success)
 
 
+@reports_bp.route('/big-screen/')
+@login_required
+def big_screen():
+    """可视化大屏页面"""
+    return render_template('big_screen.html')
+
+
+@reports_bp.route('/api/big-screen-data')
+@login_required
+def big_screen_data():
+    """大屏数据 API - 返回 JSON，前端渲染"""
+    from datetime import datetime, timedelta
+    import pandas as pd
+    import numpy as np
+    from analyzers.utils import get_media_group, normalize_media_name
+
+    days = request.args.get('days', '30')
+    group_filter = request.args.get('group', 'all')
+    try:
+        days = int(days)
+    except:
+        days = 30
+
+    end_date = datetime.now().strftime('%Y-%m-%d')
+    start_date = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+
+    from data_sources.db_source import DBSource
+    db = DBSource()
+    wl_df = db.query_workload_data(start_date, end_date)
+    ql_df = db.query_quality_data(start_date, end_date)
+    ct_df = db.query_cost_data(start_date, end_date)
+
+    # ===== 打小组标签 =====
+    for df, col in [(wl_df, 'schedule_user_name'), (ql_df, 'submit_media_user_name'), (ct_df, 'submit_media_user_name')]:
+        if col in df.columns:
+            df['小组'] = df[col].apply(lambda x: get_media_group(normalize_media_name(str(x))) if pd.notna(x) else '未知')
+
+    # ===== 小组筛选 =====
+    if group_filter != 'all':
+        for df in [wl_df, ql_df, ct_df]:
+            if '小组' in df.columns:
+                df.query('小组 == @group_filter', inplace=True)
+
+    # ===== 1. 汇总指标 =====
+    total_scheduled = len(wl_df)
+    total_submitted = len(ql_df)
+
+    total_media = wl_df['schedule_user_name'].nunique() if 'schedule_user_name' in wl_df.columns else 0
+    total_groups = wl_df['小组'].nunique() if '小组' in wl_df.columns else 0
+    total_projects = wl_df['project_name'].dropna().nunique() if 'project_name' in wl_df.columns else 0
+    pass_rate = min(round(total_submitted / total_scheduled * 100, 1), 100.0) if total_scheduled > 0 else 0
+
+    # CPM
+    avg_cpm = 0.0
+    if 'cost_amount' in ct_df.columns and 'read_count' in ct_df.columns:
+        v = ct_df[(ct_df['cost_amount'] > 0) & (ct_df['read_count'] > 0)]
+        if len(v) > 0:
+            avg_cpm = round((v['cost_amount'].sum() / v['read_count'].sum()) * 1000, 2)
+
+    # 返点
+    avg_rebate = 0.0
+    if 'rebate_amount' in ct_df.columns and 'cooperation_quote' in ct_df.columns:
+        v = ct_df[ct_df['cooperation_quote'] > 0]
+        if len(v) > 0:
+            avg_rebate = round((v['rebate_amount'].sum() / v['cooperation_quote'].sum()) * 100, 1)
+
+    # 互动
+    ti = int(ct_df['interaction_count'].sum()) if 'interaction_count' in ct_df.columns else 0
+    tr = int(ct_df['read_count'].sum()) if 'read_count' in ct_df.columns else 0
+    ir = round(ti / tr * 100, 2) if tr > 0 else 0
+
+    # 总成本 / 平均 CPE
+    total_cost = round(float(ct_df['cost_amount'].sum()), 2) if 'cost_amount' in ct_df.columns else 0
+    avg_cpe = round(total_cost / ti, 2) if ti > 0 else 0
+
+    # ===== 2. 小组对比 =====
+    group_stats = {}
+    if '小组' in wl_df.columns:
+        for g in wl_df['小组'].unique():
+            g_wl = wl_df[wl_df['小组'] == g]
+            g_ql = ql_df[ql_df['小组'] == g] if '小组' in ql_df.columns else pd.DataFrame()
+            g_ct = ct_df[ct_df['小组'] == g] if '小组' in ct_df.columns else pd.DataFrame()
+            sched = len(g_wl)
+            subm = len(g_ql)
+            g_cost = float(g_ct['cost_amount'].sum()) if 'cost_amount' in g_ct.columns else 0
+            g_cpm = 0
+            if 'cost_amount' in g_ct.columns and 'read_count' in g_ct.columns:
+                gv = g_ct[(g_ct['cost_amount'] > 0) & (g_ct['read_count'] > 0)]
+                if len(gv) > 0:
+                    g_cpm = round((gv['cost_amount'].sum() / gv['read_count'].sum()) * 1000, 2)
+            group_stats[g] = {
+                'scheduled': sched, 'submitted': subm,
+                'pass_rate': min(round(subm / sched * 100, 1), 100.0) if sched > 0 else 0,
+                'cost': g_cost, 'cpm': g_cpm,
+                'media_count': g_wl['schedule_user_name'].nunique() if 'schedule_user_name' in g_wl.columns else 0
+            }
+
+    # ===== 3. 质量分布 =====
+    quality_dist = []
+    if 'submit_media_user_name' in ql_df.columns and 'schedule_user_name' in wl_df.columns:
+        ms = ql_df.groupby('submit_media_user_name').size().to_dict()
+        mw = wl_df.groupby('schedule_user_name').size().to_dict()
+        rates = []
+        for m in set(list(ms.keys()) + list(mw.keys())):
+            s = mw.get(m, 0)
+            q = ms.get(m, 0)
+            if s > 0:
+                rates.append(q / s * 100)
+        if rates:
+            quality_dist = [
+                {'name': '优质(≥80%)',  'value': sum(1 for r in rates if r >= 80)},
+                {'name': '良好(50-80%)','value': sum(1 for r in rates if 50 <= r < 80)},
+                {'name': '待提升(<50%)','value': sum(1 for r in rates if r < 50)},
+            ]
+
+    # ===== 4. 媒介排名 =====
+    media_ranking = []
+    if 'schedule_user_name' in wl_df.columns:
+        cnt = wl_df['schedule_user_name'].value_counts().head(20)
+        media_submit_map = ql_df.groupby('submit_media_user_name').size().to_dict() if 'submit_media_user_name' in ql_df.columns else {}
+        for rank, (name, count) in enumerate(cnt.items(), 1):
+            g = get_media_group(normalize_media_name(name))
+            subm = media_submit_map.get(name, 0)
+            media_ranking.append({
+                'name': normalize_media_name(name), 'group': g, 'scheduled': int(count),
+                'submitted': int(subm),
+                'pass_rate': min(round(subm / count * 100, 1), 100.0) if count > 0 else 0
+            })
+
+    # ===== 5. 返点排名 =====
+    rebate_ranking = []
+    if 'submit_media_user_name' in ct_df.columns:
+        grp = ct_df.groupby('submit_media_user_name').agg(
+            rebate=('rebate_amount', 'sum'), quote=('cooperation_quote', 'sum')
+        ).reset_index()
+        grp['pct'] = grp.apply(lambda r: round(r['rebate']/r['quote']*100,1) if r['quote']>0 else 0, axis=1)
+        grp = grp[grp['quote'] > 0].sort_values('pct', ascending=False).head(15)
+        for _, r in grp.iterrows():
+            g = get_media_group(normalize_media_name(r['submit_media_user_name']))
+            rebate_ranking.append({
+                'name': normalize_media_name(r['submit_media_user_name']), 'group': g, 'rebate_pct': r['pct']
+            })
+
+    # ===== 6. CPE 分布 =====
+    cpe_dist = []
+    if 'cost_amount' in ct_df.columns and 'interaction_count' in ct_df.columns:
+        d = ct_df[(ct_df['cost_amount'] > 0) & (ct_df['interaction_count'] > 0)].copy()
+        if len(d) > 0:
+            cv = d['cost_amount'] / d['interaction_count']
+            bins = {'0-5': 0, '5-10': 0, '10-20': 0, '20-50': 0, '50+': 0}
+            for v in cv:
+                if v <= 5: bins['0-5'] += 1
+                elif v <= 10: bins['5-10'] += 1
+                elif v <= 20: bins['10-20'] += 1
+                elif v <= 50: bins['20-50'] += 1
+                else: bins['50+'] += 1
+            cpe_dist = [{'name': k, 'value': v} for k, v in bins.items()]
+
+    # ===== 7. 成本分布 =====
+    cost_dist = []
+    if 'cost_amount' in ct_df.columns:
+        cv = ct_df['cost_amount']
+        bins = {'0': 0, '0-1000': 0, '1000-5000': 0, '5000-20000': 0, '20000+': 0}
+        for v in cv:
+            if v == 0: bins['0'] += 1
+            elif v <= 1000: bins['0-1000'] += 1
+            elif v <= 5000: bins['1000-5000'] += 1
+            elif v <= 20000: bins['5000-20000'] += 1
+            else: bins['20000+'] += 1
+        cost_dist = [{'name': k, 'value': v} for k, v in bins.items()]
+
+    # ===== 8. 每日趋势（近14天） =====
+    daily_trend = []
+    if 'schedule_time' in ct_df.columns:
+        d = ct_df.copy()
+        d['date'] = pd.to_datetime(d['schedule_time']).dt.date
+        grp = d.groupby('date').agg(
+            scheduled=('id', 'count'),
+            cost=('cost_amount', 'sum'),
+            interactions=('interaction_count', 'sum'),
+            reads=('read_count', 'sum')
+        ).reset_index().sort_values('date').tail(14)
+        for _, r in grp.iterrows():
+            daily_trend.append({
+                'date': str(r['date']),
+                'scheduled': int(r['scheduled']),
+                'cost': round(float(r['cost']), 2),
+                'interaction_rate': round(r['interactions']/r['reads']*100, 2) if r['reads'] > 0 else 0
+            })
+
+    # ===== 9. 项目排名 =====
+    project_ranking = []
+    if 'project_name' in wl_df.columns:
+        grp = wl_df.groupby('project_name').agg(
+            scheduled=('id', 'count'),
+            media_count=('schedule_user_name', 'nunique')
+        ).reset_index().sort_values('scheduled', ascending=False).head(15)
+        for _, r in grp.iterrows():
+            project_ranking.append({
+                'name': r['project_name'], 'scheduled': int(r['scheduled']),
+                'media_count': int(r['media_count'])
+            })
+
+    return jsonify({
+        'summary': {
+            'total_scheduled': total_scheduled,
+            'total_submitted': total_submitted,
+            'total_media': total_media,
+            'total_groups': total_groups,
+            'total_projects': total_projects,
+            'pass_rate': pass_rate,
+            'avg_cpm': avg_cpm,
+            'avg_rebate': avg_rebate,
+            'interaction_rate': ir,
+            'total_interactions': ti,
+            'total_reads': tr,
+            'total_cost': total_cost,
+            'avg_cpe': avg_cpe,
+        },
+        'group_stats': group_stats,
+        'quality_distribution': quality_dist,
+        'media_ranking': media_ranking,
+        'rebate_ranking': rebate_ranking,
+        'cpe_distribution': cpe_dist,
+        'cost_distribution': cost_dist,
+        'daily_trend': daily_trend,
+        'project_ranking': project_ranking,
+        'days': days,
+        'start_date': start_date,
+        'end_date': end_date,
+    })
+
+
 @reports_bp.route('/workload/<analysis_id>')
 @login_required
 def workload_report(analysis_id):
@@ -693,8 +926,13 @@ def cost_invalid_data_report(analysis_id):
                             '下单价': float(item.get('下单价', 0)) if item.get('下单价') else 0,
                             '返点': float(item.get('返点', 0)) if item.get('返点') else 0,
                             '返点比例': float(item.get('返点比例', 0)) * 100 if item.get('返点比例') else 0,
-                            '成本无效原因': item.get('成本无效原因', '成本为0或缺失'),
-                            '无效类型': '成本为0或缺失' if '成本为0' in item.get('成本无效原因', '') else '其他原因',
+                            '成本无效原因': item.get('成本无效原因', '成本/报价/下单价为0、缺失或小于0'),
+                            '无效类型': (
+                                '成本无效' if '成本' in item.get('成本无效原因', '')
+                                else '报价无效' if '报价' in item.get('成本无效原因', '')
+                                else '下单价无效' if '下单价' in item.get('成本无效原因', '')
+                                else '其他原因'
+                            ),
                             '是否被筛除': item.get('被筛除标志', False),
                             '筛除原因': item.get('筛除原因', ''),
                             '是否参与分析': False
@@ -1198,8 +1436,13 @@ def export_invalid_data(analysis_id):
                                 '下单价': float(item.get('下单价', 0)) if item.get('下单价') else 0,
                                 '返点': float(item.get('返点', 0)) if item.get('返点') else 0,
                                 '返点比例': float(item.get('返点比例', 0)) * 100 if item.get('返点比例') else 0,
-                                '成本无效原因': item.get('成本无效原因', '成本为0或缺失'),
-                                '无效类型': '成本为0或缺失' if '成本为0' in item.get('成本无效原因', '') else '其他原因',
+                                '成本无效原因': item.get('成本无效原因', '成本/报价/下单价为0、缺失或小于0'),
+                                '无效类型': (
+                                    '成本无效' if '成本' in item.get('成本无效原因', '')
+                                    else '报价无效' if '报价' in item.get('成本无效原因', '')
+                                    else '下单价无效' if '下单价' in item.get('成本无效原因', '')
+                                    else '其他原因'
+                                ),
                                 '是否被筛除': item.get('被筛除标志', False),
                                 '筛除原因': item.get('筛除原因', ''),
                                 '是否参与分析': False
